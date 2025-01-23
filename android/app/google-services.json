@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "711150569316",
+    "project_id": "receipt-72310",
+    "storage_bucket": "receipt-72310.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711150569316:android:25fa6cc3d469d77813dc71",
+        "android_client_info": {
+          "package_name": "com.example.cookcraft"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAslEKE5GJ0zizomWhIaTSFScdgDDdyXSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711150569316:android:76c237e7411aca2c13dc71",
+        "android_client_info": {
+          "package_name": "com.example.proj1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAslEKE5GJ0zizomWhIaTSFScdgDDdyXSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

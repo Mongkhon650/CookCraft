@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/ingredients_detect.dart';
 import 'bounding_box_screen.dart';
 import '../Components/tagList.dart';
+import '../utils/json_food_loader.dart'; // นำเข้า JsonLoader สำหรับแปลภาษา
 import 'package:cookcraft/Components/bounding_box_painter.dart';
 
 class CameraPage extends StatefulWidget {
@@ -42,12 +43,17 @@ class _CameraPageState extends State<CameraPage> {
         _predictions = List<Map<String, dynamic>>.from(analysisResult["predictions"]);
       });
 
-      // เพิ่ม Tags จากการวิเคราะห์
+      // เพิ่ม Tags จากการวิเคราะห์และแปลชื่อวัตถุดิบ
       for (var prediction in _predictions) {
         final detectedClass = prediction["class"];
-        if (!_tags.contains(detectedClass)) {
+
+        // แปลชื่อวัตถุดิบ
+        final translatedName = await JsonLoader.translateIngredient(detectedClass);
+        final tag = translatedName ?? detectedClass; // ใช้ชื่อที่แปล ถ้าไม่มีให้ใช้ชื่อเดิม
+
+        if (!_tags.contains(tag)) {
           setState(() {
-            _tags.add(detectedClass);
+            _tags.add(tag);
           });
         }
       }

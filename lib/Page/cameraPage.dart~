@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/ingredients_detect.dart';
-import 'bounding_box_screen.dart';
-import '../Components/tagList.dart';
 import 'package:cookcraft/Components/bounding_box_painter.dart';
 
 class CameraPage extends StatefulWidget {
@@ -16,15 +14,18 @@ class CameraPage extends StatefulWidget {
 class _CameraPageState extends State<CameraPage> {
   File? _image;
   bool _isLoading = false;
+  List<Map<String, dynamic>> _predictions = [];
+  double _imageWidth = 1.0;
+  double _imageHeight = 1.0;
+
   final ImagePicker _picker = ImagePicker();
-  final List<String> _tags = []; // รายการ Tag ที่ผู้ใช้เพิ่ม
-  List<Map<String, dynamic>> _predictions = []; // การวิเคราะห์จาก API
 
   Future<void> _pickImageFromGallery() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
+        _predictions = [];
       });
       await _processImage(_image!.path);
     }
@@ -38,19 +39,13 @@ class _CameraPageState extends State<CameraPage> {
     try {
       final analysisResult = await IngredientsDetect.analyzeImage(imagePath);
 
-      setState(() {
-        _predictions = List<Map<String, dynamic>>.from(analysisResult["predictions"]);
-      });
+      final predictions = List<Map<String, dynamic>>.from(analysisResult["predictions"]);
 
-      // เพิ่ม Tags จากการวิเคราะห์
-      for (var prediction in _predictions) {
-        final detectedClass = prediction["class"];
-        if (!_tags.contains(detectedClass)) {
-          setState(() {
-            _tags.add(detectedClass);
-          });
-        }
-      }
+      setState(() {
+        _predictions = predictions;
+        _imageWidth = analysisResult["image"]["width"].toDouble();
+        _imageHeight = analysisResult["image"]["height"].toDouble();
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -62,9 +57,6 @@ class _CameraPageState extends State<CameraPage> {
     }
   }
 
-  void _confirmSelection() {
-    Navigator.pop(context, _tags); // ส่ง Tags กลับไปยัง MainPage
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,16 +68,18 @@ class _CameraPageState extends State<CameraPage> {
             Expanded(
               child: Stack(
                 children: [
-                  // แสดงภาพที่เลือก
-                  Image.file(_image!, fit: BoxFit.cover, width: double.infinity),
-                  // แสดง Bounding Box
+                  Image.file(
+                    _image!,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
                   if (_predictions.isNotEmpty)
                     CustomPaint(
                       size: Size.infinite,
                       painter: BoundingBoxPainter(
                         predictions: _predictions,
-                        imageWidth: _predictions.first["imageWidth"]?.toDouble() ?? 1.0,
-                        imageHeight: _predictions.first["imageHeight"]?.toDouble() ?? 1.0,
+                        imageWidth: _imageWidth,
+                        imageHeight: _imageHeight,
                       ),
                     ),
                 ],
@@ -93,21 +87,9 @@ class _CameraPageState extends State<CameraPage> {
             ),
           if (_isLoading)
             const CircularProgressIndicator(),
-          if (_tags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                "วัตถุดิบ: ${_tags.join(', ')}",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
           ElevatedButton(
             onPressed: _pickImageFromGallery,
             child: const Text('เลือกภาพ'),
-          ),
-          ElevatedButton(
-            onPressed: _confirmSelection, // ส่ง Tags กลับไป
-            child: const Text('ตกลง'),
           ),
         ],
       ),

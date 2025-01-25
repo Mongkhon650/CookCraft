@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+
+class BoundingBoxPainter extends CustomPainter {
+  final List<dynamic> predictions;
+  final double imageWidth;
+  final double imageHeight;
+
+  BoundingBoxPainter({
+    required this.predictions,
+    required this.imageWidth,
+    required this.imageHeight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // คำนวณ Scale
+    final scaleX = size.width / imageWidth;
+    final scaleY = size.height / imageHeight;
+
+    // ใช้ Scale ที่เล็กกว่าเพื่อลดการบิดเบือน
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+
+    // คำนวณ Offset เพื่อให้ภาพอยู่กึ่งกลาง
+    final offsetX = (size.width - (imageWidth * scale)) / 2;
+    final offsetY = (size.height - (imageHeight * scale)) / 2;
+
+    // Debugging
+    print("Canvas Size: ${size.width} x ${size.height}");
+    print("Image Size: $imageWidth x $imageHeight");
+    print("Scale: $scale, OffsetX: $offsetX, OffsetY: $offsetY");
+
+    for (var prediction in predictions) {
+      final x = (prediction["x"] as double) * scale + offsetX;
+      final y = (prediction["y"] as double) * scale + offsetY;
+      final width = (prediction["width"] as double) * scale;
+      final height = (prediction["height"] as double) * scale;
+
+      // Debugging
+      print("Prediction: $prediction");
+      print("Calculated Rect: x=${x - width / 2}, y=${y - height / 2}, width=$width, height=$height");
+
+      // วาดกรอบ
+      final rect = Rect.fromLTWH(
+        x - width / 2,
+        y - height / 2,
+        width,
+        height,
+      );
+
+      canvas.drawRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
+}

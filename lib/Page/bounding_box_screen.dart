@@ -4,7 +4,7 @@ import '/Components/bounding_box_painter.dart';
 
 class BoundingBoxScreen extends StatelessWidget {
   final String imagePath;
-  final List<dynamic> predictions;
+  final List<Map<String, dynamic>> predictions;
   final double imageWidth;
   final double imageHeight;
 
@@ -23,23 +23,41 @@ class BoundingBoxScreen extends StatelessWidget {
       body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return Stack(
-              children: [
-                Image.file(
-                  File(imagePath),
-                  fit: BoxFit.contain,
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight,
-                ),
-                CustomPaint(
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
-                  painter: BoundingBoxPainter(
-                    predictions: predictions,
-                    imageWidth: imageWidth,
-                    imageHeight: imageHeight,
+            final displayWidth = constraints.maxWidth;
+            final displayHeight = constraints.maxHeight;
+
+            // คำนวณ Scale
+            final scale = (displayWidth / imageWidth < displayHeight / imageHeight)
+                ? displayWidth / imageWidth
+                : displayHeight / imageHeight;
+
+            final scaledWidth = imageWidth * scale;
+            final scaledHeight = imageHeight * scale;
+
+            return Center(
+              child: Stack(
+                children: [
+                  SizedBox(
+                    width: scaledWidth,
+                    height: scaledHeight,
+                    child: Image.file(
+                      File(imagePath),
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(
+                    width: scaledWidth,
+                    height: scaledHeight,
+                    child: CustomPaint(
+                      painter: BoundingBoxPainter(
+                        predictions: predictions,
+                        imageWidth: imageWidth,
+                        imageHeight: imageHeight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),

@@ -4,8 +4,6 @@ import '../Components/searchResult.dart'; // ดึง SearchResults มาใ�
 import '../Components/tagList.dart';
 import '../Components/navigationBar.dart';
 import 'package:cookcraft/Page/cameraPage.dart';
-import 'package:cookcraft/models/roboflow_api.dart';
-
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -60,13 +58,18 @@ class _MainPageState extends State<MainPage> {
         ],
       ),
       bottomNavigationBar: RecipeBottomNavigationBar(
-        onCameraPressed: () {
-          Navigator.push(
+        onCameraPressed: () async {
+          final List<String>? newTags = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CameraPage(),
+              builder: (context) => const CameraPage(),
             ),
           );
+          if (newTags != null) {
+            for (var tag in newTags) {
+              _addSearchTag(tag); // เพิ่ม Tags ที่รับมา
+            }
+          }
         },
       ),
     );

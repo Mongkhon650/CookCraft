@@ -14,7 +14,6 @@ class CameraPage extends StatefulWidget {
 class _CameraPageState extends State<CameraPage> {
   File? _image;
   bool _isLoading = false;
-
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImageFromGallery() async {
@@ -33,7 +32,11 @@ class _CameraPageState extends State<CameraPage> {
     });
 
     try {
-      final predictions = await IngredientsDetect.analyzeImage(imagePath);
+      final analysisResult = await IngredientsDetect.analyzeImage(imagePath);
+
+      final predictions = List<Map<String, dynamic>>.from(analysisResult["predictions"]);
+      final double imageWidth = analysisResult["image"]["width"].toDouble();
+      final double imageHeight = analysisResult["image"]["height"].toDouble();
 
       Navigator.push(
         context,
@@ -41,6 +44,8 @@ class _CameraPageState extends State<CameraPage> {
           builder: (context) => BoundingBoxScreen(
             imagePath: imagePath,
             predictions: predictions,
+            imageWidth: imageWidth,
+            imageHeight: imageHeight,
           ),
         ),
       );

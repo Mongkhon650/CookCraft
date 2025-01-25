@@ -1,22 +1,41 @@
 import 'package:flutter/material.dart';
 
 class BoundingBoxPainter extends CustomPainter {
-  final List<Map<String, dynamic>> predictions;
+  final List<dynamic> predictions;
+  final double imageWidth;
+  final double imageHeight;
 
-  BoundingBoxPainter(this.predictions);
+  BoundingBoxPainter({
+    required this.predictions,
+    required this.imageWidth,
+    required this.imageHeight,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.red
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final textStyle = TextStyle(
+      color: Colors.white,
+      backgroundColor: Colors.red,
+      fontSize: 12,
+    );
+
+    // คำนวณ Scale และ Offset
+    final scaleX = size.width / imageWidth;
+    final scaleY = size.height / imageHeight;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final offsetX = (size.width - (imageWidth * scale)) / 2;
+    final offsetY = (size.height - (imageHeight * scale)) / 2;
 
     for (var prediction in predictions) {
-      final x = prediction["x"];
-      final y = prediction["y"];
-      final width = prediction["width"];
-      final height = prediction["height"];
+      final x = (prediction["x"] as double) * scale + offsetX;
+      final y = (prediction["y"] as double) * scale + offsetY;
+      final width = (prediction["width"] as double) * scale;
+      final height = (prediction["height"] as double) * scale;
 
       final rect = Rect.fromLTWH(
         x - width / 2,
@@ -24,26 +43,22 @@ class BoundingBoxPainter extends CustomPainter {
         width,
         height,
       );
-
       canvas.drawRect(rect, paint);
 
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text:
-          '${prediction["class"]} ${(prediction["confidence"] * 100).toStringAsFixed(2)}%',
-          style: TextStyle(
-            color: Colors.white,
-            backgroundColor: Colors.red,
-            fontSize: 12,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
+      final textSpan = TextSpan(
+        text: '${prediction["class"]} ${(prediction["confidence"] * 100).toStringAsFixed(2)}%',
+        style: textStyle,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x - width / 2, y - height / 2 - 15));
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(canvas, Offset(x - width / 2, y - height / 2 - 12));
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
 }

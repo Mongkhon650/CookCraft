@@ -3,7 +3,8 @@ import '../Components/searchBar.dart'; // ดึง SearchBar มาใช้
 import '../Components/searchResult.dart'; // ดึง SearchResults มาใช้
 import '../Components/tagList.dart';
 import '../Components/navigationBar.dart';
-import '../Page/cameraPage.dart';
+import 'package:cookcraft/Page/cameraPage.dart';
+
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -62,9 +63,7 @@ class _MainPageState extends State<MainPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CameraPage(
-                onAddTag: _addSearchTag, // ส่งฟังก์ชันไปยัง CameraPage
-              ),
+              builder: (context) => CameraPage(),
             ),
           );
         },

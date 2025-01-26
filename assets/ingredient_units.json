@@ -1,0 +1,31 @@
+{
+  "Pork": {
+    "unit": {
+      "weight": "กรัม",
+      "count": "ชิ้น"
+    },
+    "calculate": ["weight", "count"],
+    "type": "meat"
+  },
+  "Egg": {
+    "unit": {
+      "count": "ฟอง"
+    },
+    "calculate": ["count"],
+    "type": "egg"
+  },
+  "Garlic": {
+    "unit": {
+      "count": "ชิ้น"
+    },
+    "calculate": ["count"],
+    "type": "vegetable"
+  },
+  "Basil": {
+    "unit": {
+      "count": "ต้น"
+    },
+    "calculate": ["count"],
+    "type": "herb"
+  }
+}

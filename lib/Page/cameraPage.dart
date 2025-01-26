@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cookcraft/Components/camera/image_handler.dart';
 import 'package:cookcraft/Components/camera/image_processor.dart';
 import 'package:cookcraft/Components/camera/bounding_box_painter.dart';
+import 'package:cookcraft/utils/ingredient_quantity_estimator.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({Key? key}) : super(key: key);
@@ -14,6 +15,7 @@ class CameraPage extends StatefulWidget {
 class _CameraPageState extends State<CameraPage> {
   final ImageHandler _imageHandler = ImageHandler();
   final ImageProcessor _imageProcessor = ImageProcessor();
+  final IngredientQuantityEstimator _quantityEstimator = IngredientQuantityEstimator();
 
   File? _image;
   bool _isLoading = false;
@@ -21,6 +23,7 @@ class _CameraPageState extends State<CameraPage> {
   List<String> _tags = [];
   double _imageWidth = 0;
   double _imageHeight = 0;
+  Map<String, dynamic> _quantities = {};
 
   Future<void> _captureImage() async {
     final image = await _imageHandler.captureImage();
@@ -56,10 +59,27 @@ class _CameraPageState extends State<CameraPage> {
         _imageHeight = result["imageHeight"];
       });
 
-      // แปลชื่อวัตถุดิบ
+      // แปลชื่อวัตถุดิบเป็นภาษาไทย
       final translatedTags = await _imageProcessor.translatePredictions(_predictions);
       setState(() {
         _tags = translatedTags;
+      });
+
+      // คำนวณปริมาณวัตถุดิบ
+      final densityMapping = {
+        "Egg": 0.02,
+        "Garlic": 0.01,
+        "Pork": 0.003,
+      };
+      final quantities = await _quantityEstimator.estimateQuantities(_predictions, densityMapping);
+
+      // ใช้ `translatePredictions` แปลงคีย์ใน `_quantities` เป็นภาษาไทย
+      final translatedKeys = await _imageProcessor.translatePredictions(
+          quantities.keys.map((key) => {"class": key}).toList());
+      final translatedQuantities = Map.fromIterables(translatedKeys, quantities.values);
+
+      setState(() {
+        _quantities = translatedQuantities;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,10 +97,11 @@ class _CameraPageState extends State<CameraPage> {
     _imageWidth = 0;
     _imageHeight = 0;
     _tags = [];
+    _quantities = {};
   }
 
   void _confirmSelection() {
-    Navigator.pop(context, _tags);
+    Navigator.pop(context, _tags); // ส่ง Tags กลับไปยัง MainPage
   }
 
   @override
@@ -143,9 +164,33 @@ class _CameraPageState extends State<CameraPage> {
           if (_tags.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Text(
-                "วัตถุดิบ: ${_tags.join(', ')}",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Column(
+                children: [
+                  Text(
+                    "วัตถุดิบ: ${_tags.join(', ')}",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  for (var entry in _quantities.entries)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${entry.key}:", // ชื่อวัตถุดิบที่แปลเป็นภาษาไทย
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                        ),
+                        if (entry.value["weight"] != null)
+                          Text(
+                            "น้ำหนักโดยประมาณ: ${entry.value["weight"]["value"].toStringAsFixed(2)} ${entry.value["weight"]["unit"]}",
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                        if (entry.value["count"] != null)
+                          Text(
+                            "จำนวน: ${entry.value["count"]["value"]} ${entry.value["count"]["unit"]}",
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                      ],
+                    ),
+                ],
               ),
             ),
           Expanded(

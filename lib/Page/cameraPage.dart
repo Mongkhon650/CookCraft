@@ -107,111 +107,145 @@ class _CameraPageState extends State<CameraPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ถ่ายภาพวัตถุดิบ')),
-      body: Column(
-        children: [
-          if (_image != null)
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final displayWidth = constraints.maxWidth;
-                  final displayHeight = constraints.maxHeight;
-
-                  if (_imageWidth <= 0 || _imageHeight <= 0) {
-                    return const Center(
-                      child: Text(
-                        "กำลังโหลดภาพ...",
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    );
-                  }
-
-                  final aspectRatio = _imageWidth / _imageHeight;
-                  double scaledWidth, scaledHeight;
-
-                  if (displayWidth / displayHeight > aspectRatio) {
-                    scaledHeight = displayHeight;
-                    scaledWidth = scaledHeight * aspectRatio;
-                  } else {
-                    scaledWidth = displayWidth;
-                    scaledHeight = scaledWidth / aspectRatio;
-                  }
-
-                  return Center(
-                    child: Stack(
-                      children: [
-                        SizedBox(
-                          width: scaledWidth,
-                          height: scaledHeight,
-                          child: Image.file(_image!, fit: BoxFit.contain),
-                        ),
-                        if (_predictions.isNotEmpty)
-                          CustomPaint(
-                            size: Size(scaledWidth, scaledHeight),
-                            painter: BoundingBoxPainter(
-                              predictions: _predictions,
-                              imageWidth: _imageWidth,
-                              imageHeight: _imageHeight,
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          if (_isLoading) const CircularProgressIndicator(),
-          if (_tags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Text(
-                    "วัตถุดิบ: ${_tags.join(', ')}",
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  for (var entry in _quantities.entries)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "${entry.key}:", // ชื่อวัตถุดิบที่แปลเป็นภาษาไทย
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-                        ),
-                        if (entry.value["weight"] != null)
-                          Text(
-                            "น้ำหนักโดยประมาณ: ${entry.value["weight"]["value"].toStringAsFixed(2)} ${entry.value["weight"]["unit"]}",
-                            style: const TextStyle(fontSize: 14, color: Colors.black87),
-                          ),
-                        if (entry.value["count"] != null)
-                          Text(
-                            "จำนวน: ${entry.value["count"]["value"]} ${entry.value["count"]["unit"]}",
-                            style: const TextStyle(fontSize: 14, color: Colors.black87),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton(onPressed: _captureImage, child: const Text('ถ่ายภาพ')),
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _pickImage, child: const Text('เลือกภาพจากแกลเลอรี่')),
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _confirmSelection, child: const Text('ตกลง')),
-                ],
-              ),
-            ),
-          ),
-        ],
+      appBar: AppBar(
+        title: const Text('Cookcraft', style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.blue,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       ),
+      body: _buildContent(),
     );
   }
+
+  Widget _buildContent() {
+    if (_image == null) {
+      // Step 1: เลือกภาพ
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: _captureImage,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+              child: const Text("ถ่ายภาพ"),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _pickImage,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+              child: const Text("เลือกภาพจากแกลเลอรี่"),
+            ),
+          ],
+        ),
+      );
+    } else if (_isLoading) {
+      // Step 2: กำลังประมวลผล
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              "กำลังประมวลผล",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Step 3: แสดงผลวัตถุดิบและ Bounding Box
+      return Column(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final displayWidth = constraints.maxWidth;
+                final displayHeight = constraints.maxHeight;
+
+                if (_imageWidth <= 0 || _imageHeight <= 0) {
+                  return const Center(
+                    child: Text(
+                      "กำลังโหลดภาพ...",
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  );
+                }
+
+                final aspectRatio = _imageWidth / _imageHeight;
+                double scaledWidth, scaledHeight;
+
+                if (displayWidth / displayHeight > aspectRatio) {
+                  scaledHeight = displayHeight;
+                  scaledWidth = scaledHeight * aspectRatio;
+                } else {
+                  scaledWidth = displayWidth;
+                  scaledHeight = scaledWidth / aspectRatio;
+                }
+
+                return Center(
+                  child: Stack(
+                    children: [
+                      SizedBox(
+                        width: scaledWidth,
+                        height: scaledHeight,
+                        child: Image.file(_image!, fit: BoxFit.contain),
+                      ),
+                      if (_predictions.isNotEmpty)
+                        CustomPaint(
+                          size: Size(scaledWidth, scaledHeight),
+                          painter: BoundingBoxPainter(
+                            predictions: _predictions,
+                            imageWidth: _imageWidth,
+                            imageHeight: _imageHeight,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                Text(
+                  "วัตถุดิบ: ${_tags.join(', ')}",
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                for (var entry in _quantities.entries)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${entry.key}:", // ชื่อวัตถุดิบที่แปลเป็นภาษาไทย
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      if (entry.value["weight"] != null)
+                        Text(
+                          "น้ำหนัก: ${entry.value["weight"]["value"].toStringAsFixed(2)} ${entry.value["weight"]["unit"]}",
+                        ),
+                      if (entry.value["count"] != null)
+                        Text(
+                          "จำนวน: ${entry.value["count"]["value"]} ${entry.value["count"]["unit"]}",
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _confirmSelection,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text("ตกลง"),
+          ),
+        ],
+      );
+    }
+  }
 }
-
-
-

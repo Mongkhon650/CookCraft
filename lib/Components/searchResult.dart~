@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:cookcraft/Page/recipeDetailPage.dart';
 
 class SearchResult extends StatelessWidget {
   final List<String> searchTags;
@@ -59,32 +58,22 @@ class SearchResult extends StatelessWidget {
           itemCount: filteredRecipes.length,
           itemBuilder: (context, index) {
             final recipe = filteredRecipes[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RecipeDetailPage(recipeId: recipe.id), // ส่ง ID ไปหน้า RecipeDetailPage
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8.0),
-                  image: DecorationImage(
-                    image: NetworkImage(recipe['image_url']),
-                    fit: BoxFit.cover,
-                  ),
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8.0),
+                image: DecorationImage(
+                  image: NetworkImage(recipe['image_url']),
+                  fit: BoxFit.cover,
                 ),
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  color: Colors.black.withOpacity(0.6),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      recipe['name'],
-                      style: const TextStyle(color: Colors.white),
-                    ),
+              ),
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                color: Colors.black.withOpacity(0.6),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    recipe['name'],
+                    style: const TextStyle(color: Colors.white),
                   ),
                 ),
               ),

@@ -3,11 +3,13 @@ import '../Components/searchBar.dart';
 import '../Components/searchResult.dart';
 import '../Components/tagList.dart';
 import '../Components/navigationBar.dart'; // Navigation Bar
-import 'package:cookcraft/Page/cameraPage.dart'; // CameraPage
-import 'package:cookcraft/Page/bookmarkPage.dart'; // BookmarkPage
+import 'cameraPage.dart'; // CameraPage
+import 'bookmarkPage.dart'; // BookmarkPage
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  final List<String>? searchTags; // เพิ่มพารามิเตอร์ searchTags
+
+  const MainPage({Key? key, this.searchTags}) : super(key: key);
 
   @override
   _MainPageState createState() => _MainPageState();
@@ -15,20 +17,25 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // เริ่มต้นที่ "ค้นหา"
-  final TextEditingController _searchController = TextEditingController();
-  final List<String> _searchTags = [];
+  late List<String> _searchTags; // ใช้แท็กที่ส่งมาหรือแท็กใหม่
+
+  @override
+  void initState() {
+    super.initState();
+    _searchTags = widget.searchTags ?? []; // รับแท็กจากพารามิเตอร์หรือใช้ค่าเริ่มต้น
+  }
 
   void _addSearchTag(String tag) {
     if (tag.isNotEmpty && !_searchTags.contains(tag)) {
       setState(() {
-        _searchTags.add(tag);
+        _searchTags.add(tag); // เพิ่มแท็กใหม่
       });
     }
   }
 
   void _removeSearchTag(String tag) {
     setState(() {
-      _searchTags.remove(tag);
+      _searchTags.remove(tag); // ลบแท็กที่เลือก
     });
   }
 
@@ -40,7 +47,7 @@ class _MainPageState extends State<MainPage> {
         backgroundColor: Colors.blue,
         elevation: 0,
       ),
-      body: _buildBody(), // เปลี่ยนหน้าตาม currentIndex
+      body: _buildBody(), // เปลี่ยนเนื้อหาตาม currentIndex
       bottomNavigationBar: RecipeBottomNavigationBar(
         currentIndex: _currentIndex,
         onSearchPressed: () {
@@ -62,13 +69,10 @@ class _MainPageState extends State<MainPage> {
           }
         },
         onRecipePressed: () {
-          setState(() {
-            _currentIndex = 2; // ไปหน้า "สูตรอาหาร"
-          });
-          // Navigator.push(
-          //  context,
-          //  MaterialPageRoute(builder: (context) => const BookmarkPage()),
-          // );
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BookmarkPage()),
+          );
         },
         onProfilePressed: () {
           setState(() {
@@ -93,9 +97,9 @@ class _MainPageState extends State<MainPage> {
         children: [
           // Search Bar Section
           customSearchBar(
-            controller: _searchController,
+            controller: TextEditingController(),
             onSearch: (value) {
-              _addSearchTag(value);
+              _addSearchTag(value); // เพิ่มแท็กเมื่อค้นหา
             },
           ),
           // Tag List Section
@@ -103,7 +107,7 @@ class _MainPageState extends State<MainPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TagList(
               tags: _searchTags,
-              onRemoveTag: _removeSearchTag,
+              onRemoveTag: _removeSearchTag, // ลบแท็ก
             ),
           ),
           // Search Result Section
@@ -113,11 +117,11 @@ class _MainPageState extends State<MainPage> {
         ],
       );
     } else if (_currentIndex == 1) {
-      return const Center(child: Text("หน้ากล้อง")); // หน้า "กล้อง"
+      return const Center(child: Text("หน้ากล้อง")); // เนื้อหาในหน้า "กล้อง"
     } else if (_currentIndex == 2) {
-      return const Center(child: Text("สูตรอาหาร")); // หน้า "สูตรอาหาร"
+      return const Center(child: Text("สูตรอาหาร")); // เนื้อหาในหน้า "สูตรอาหาร"
     } else {
-      return const Center(child: Text("โปรไฟล์")); // หน้า "โปรไฟล์"
+      return const Center(child: Text("โปรไฟล์")); // เนื้อหาในหน้า "โปรไฟล์"
     }
   }
 }

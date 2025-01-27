@@ -246,9 +246,7 @@ class _CameraPageState extends State<CameraPage> {
           ElevatedButton(
             onPressed: _confirmSelection,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text("ตกลง",
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text("ตกลง"),
           ),
         ],
       );

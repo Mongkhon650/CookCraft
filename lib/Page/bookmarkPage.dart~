@@ -116,8 +116,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
           debugPrint("เพิ่มรายการ Bookmark ใหม่");
         },
         backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-        shape: const CircleBorder(),
+        child: const Icon(Icons.add),
       ),
     );
   }

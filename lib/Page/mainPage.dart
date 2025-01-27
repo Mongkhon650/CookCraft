@@ -87,7 +87,8 @@ class _MainPageState extends State<MainPage> {
           debugPrint("เพิ่มสูตรอาหารใหม่");
         },
         backgroundColor: Colors.blue,
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, color: Colors.white),
+        shape: const CircleBorder(),
       ),
     );
   }

@@ -1,24 +1,37 @@
 import 'package:flutter/material.dart';
-import '../Page/cameraPage.dart';
 
 class RecipeBottomNavigationBar extends StatelessWidget {
   final VoidCallback onCameraPressed;
+  final VoidCallback onRecipePressed;
+  final VoidCallback onSearchPressed; // Callback สำหรับ "ค้นหา"
+  final VoidCallback onProfilePressed; // Callback สำหรับ "โปรไฟล์"
+  final int currentIndex; // รับค่าดัชนีปัจจุบัน
 
   const RecipeBottomNavigationBar({
     Key? key,
     required this.onCameraPressed,
+    required this.onRecipePressed,
+    required this.onSearchPressed,
+    required this.onProfilePressed,
+    required this.currentIndex, // กำหนดค่าเริ่มต้น
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.pink,
+      selectedItemColor: Colors.lightBlueAccent,
       unselectedItemColor: Colors.grey,
-      currentIndex: 0,
+      currentIndex: currentIndex, // ใช้ currentIndex ที่รับเข้ามา
       onTap: (index) {
-        if (index == 1) {
-          onCameraPressed(); // เรียกฟังก์ชันเมื่อกดปุ่มกล้อง
+        if (index == 0) {
+          onSearchPressed(); // ค้นหา
+        } else if (index == 1) {
+          onCameraPressed(); // กล้อง
+        } else if (index == 2) {
+          onRecipePressed(); // สูตรอาหาร
+        } else if (index == 3) {
+          onProfilePressed(); // โปรไฟล์
         }
       },
       items: const [
@@ -31,8 +44,8 @@ class RecipeBottomNavigationBar extends StatelessWidget {
           label: "กล้อง",
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.favorite),
-          label: "โปรด",
+          icon: Icon(Icons.receipt),
+          label: "สูตรอาหาร",
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.person),

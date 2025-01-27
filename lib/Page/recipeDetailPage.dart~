@@ -109,36 +109,20 @@ class RecipeDetailPage extends StatelessWidget {
                       const SizedBox(height: 8),
                       ...List.generate(
                         recipeData['steps'].length,
-                            (index) {
-                          final step = recipeData['steps'][index];
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // แสดงข้อความขั้นตอนที่
-                              Text(
-                                "ขั้นตอนที่ ${step['step_number']}:",
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              // แสดงคำอธิบายของขั้นตอน
-                              Text(
-                                step['description'],
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              // แสดงรูปภาพถ้ามี
-                              if (step['image_url'] != null && step['image_url'].isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Image.network(
-                                    step['image_url'],
-                                    width: double.infinity,
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                            ],
-                          );
-                        },
+                            (index) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "ขั้นตอนที่ ${recipeData['steps'][index]['step_number']}:",
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              recipeData['steps'][index]['description'],
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
                       ),
                     ],
                   ),

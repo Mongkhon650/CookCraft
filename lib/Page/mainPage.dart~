@@ -78,7 +78,7 @@ class _MainPageState extends State<MainPage> {
         onProfilePressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ProfilePage()),
+            MaterialPageRoute(builder: (context) => const BookmarkPage()),
           );
         },
       ),

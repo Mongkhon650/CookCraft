@@ -1,3 +1,4 @@
+import 'package:cookcraft/Page/profilePage.dart';
 import 'package:flutter/material.dart';
 import '../Components/navigationBar.dart'; // Import Navigation Bar
 import 'cameraPage.dart'; // ใช้ Camera Page
@@ -106,10 +107,8 @@ class _BookmarkPageState extends State<BookmarkPage> {
           });
         },
         onProfilePressed: () {
-          setState(() {
-            _currentIndex = 3; // เปลี่ยนไปหน้า "โปรไฟล์"
-          });
-          debugPrint("ไปยังหน้าโปรไฟล์");
+          Navigator.push(context,
+          MaterialPageRoute(builder: (context) => const ProfilePage()));
         },
       ),
       floatingActionButton: FloatingActionButton(

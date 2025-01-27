@@ -50,7 +50,7 @@ class _ProfilePageState extends State<ProfilePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
             Icon(
-              Icons.person,
+              Icons.account_circle,
               size: 100,
               color: Colors.black,
             ),

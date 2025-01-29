@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cookcraft/utils/firebase_auth_service.dart';
 import 'package:cookcraft/Page/auth/register.dart';
+import 'package:cookcraft/Page/profilePage.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -19,41 +20,57 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (error == null) {
-      // สำเร็จ -> ไปหน้าหลัก
-      Navigator.pushReplacementNamed(context, '/home');
+      // ถ้าล็อคอินสำเร็จ -> ไปหน้าโปรไฟล์
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => ProfilePage()),
+      );
     } else {
       // แสดงข้อความผิดพลาด
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('เข้าสู่ระบบ')),
+      appBar: AppBar(title: const Text('เข้าสู่ระบบ')),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: emailController,
-              decoration: InputDecoration(labelText: 'อีเมล'),
+              decoration: const InputDecoration(labelText: 'อีเมล', border: OutlineInputBorder()),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: passwordController,
-              decoration: InputDecoration(labelText: 'รหัสผ่าน'),
+              decoration: const InputDecoration(labelText: 'รหัสผ่าน', border: OutlineInputBorder()),
               obscureText: true,
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: login,
-              child: Text('เข้าสู่ระบบ'),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton(
+                onPressed: login,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('เข้าสู่ระบบ', style: TextStyle(fontSize: 16)),
+              ),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterPage()));
-              },
-              child: Text('ยังไม่มีบัญชี? สมัครสมาชิกที่นี่'),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterPage()));
+                },
+                child: const Text('ยังไม่มีบัญชี? สมัครสมาชิกที่นี่'),
+              ),
             ),
           ],
         ),

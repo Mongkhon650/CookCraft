@@ -1,16 +1,18 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../Components/searchBar.dart';
 import '../Components/searchResult.dart';
 import '../Components/tagList.dart';
-import '../Components/navigationBar.dart'; // Navigation Bar
+import '../Components/navigationBar.dart';
 import '../Components/button/customFloatingButton.dart';
-import 'cameraPage.dart'; // CameraPage
-import 'bookmarkPage.dart'; // BookmarkPage
+import 'cameraPage.dart';
+import 'bookmarkPage.dart';
 import 'profilePage.dart';
 import 'addReciepPage.dart';
+import 'auth/login.dart';
 
 class MainPage extends StatefulWidget {
-  final List<String>? searchTags; // เพิ่มพารามิเตอร์ searchTags
+  final List<String>? searchTags;
 
   const MainPage({Key? key, this.searchTags}) : super(key: key);
 
@@ -19,27 +21,42 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  int _currentIndex = 0; // เริ่มต้นที่ "ค้นหา"
-  late List<String> _searchTags; // ใช้แท็กที่ส่งมาหรือแท็กใหม่
+  int _currentIndex = 0;
+  late List<String> _searchTags;
 
   @override
   void initState() {
     super.initState();
-    _searchTags = widget.searchTags ?? []; // รับแท็กจากพารามิเตอร์หรือใช้ค่าเริ่มต้น
+    _searchTags = widget.searchTags ?? [];
   }
 
   void _addSearchTag(String tag) {
     if (tag.isNotEmpty && !_searchTags.contains(tag)) {
       setState(() {
-        _searchTags.add(tag); // เพิ่มแท็กใหม่
+        _searchTags.add(tag);
       });
     }
   }
 
   void _removeSearchTag(String tag) {
     setState(() {
-      _searchTags.remove(tag); // ลบแท็กที่เลือก
+      _searchTags.remove(tag);
     });
+  }
+
+  void _handleFloatingButtonPress() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()), // ถ้าไม่ล็อกอินให้พาไปหน้า Login
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddRecipePage()), // ถ้าล็อกอินแล้วให้พาไปเพิ่มสูตรอาหาร
+      );
+    }
   }
 
   @override
@@ -50,20 +67,18 @@ class _MainPageState extends State<MainPage> {
         backgroundColor: Colors.blue,
         elevation: 0,
       ),
-      body: _buildBody(), // เปลี่ยนเนื้อหาตาม currentIndex
+      body: _buildBody(),
       bottomNavigationBar: RecipeBottomNavigationBar(
         currentIndex: _currentIndex,
         onSearchPressed: () {
           setState(() {
-            _currentIndex = 0; // กลับไปหน้า "ค้นหา"
+            _currentIndex = 0;
           });
         },
         onCameraPressed: () async {
           final List<String>? newTags = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const CameraPage(),
-            ),
+            MaterialPageRoute(builder: (context) => const CameraPage()),
           );
           if (newTags != null) {
             for (var tag in newTags) {
@@ -85,12 +100,7 @@ class _MainPageState extends State<MainPage> {
         },
       ),
       floatingActionButton: CustomFloatingButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddRecipePage()),
-          );
-        },
+        onPressed: _handleFloatingButtonPress, // ใช้เงื่อนไขเช็กการล็อกอินก่อนกดปุ่ม
       ),
     );
   }
@@ -100,33 +110,30 @@ class _MainPageState extends State<MainPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search Bar Section
           customSearchBar(
             controller: TextEditingController(),
             onSearch: (value) {
-              _addSearchTag(value); // เพิ่มแท็กเมื่อค้นหา
+              _addSearchTag(value);
             },
           ),
-          // Tag List Section
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TagList(
               tags: _searchTags,
-              onRemoveTag: _removeSearchTag, // ลบแท็ก
+              onRemoveTag: _removeSearchTag,
             ),
           ),
-          // Search Result Section
           Expanded(
             child: SearchResult(searchTags: _searchTags),
           ),
         ],
       );
     } else if (_currentIndex == 1) {
-      return const Center(child: Text("หน้ากล้อง")); // เนื้อหาในหน้า "กล้อง"
+      return const Center(child: Text("หน้ากล้อง"));
     } else if (_currentIndex == 2) {
-      return const Center(child: Text("สูตรอาหาร")); // เนื้อหาในหน้า "สูตรอาหาร"
+      return const Center(child: Text("สูตรอาหาร"));
     } else {
-      return const Center(child: Text("โปรไฟล์")); // เนื้อหาในหน้า "โปรไฟล์"
+      return const Center(child: Text("โปรไฟล์"));
     }
   }
 }

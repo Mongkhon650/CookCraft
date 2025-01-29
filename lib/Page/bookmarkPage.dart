@@ -1,10 +1,12 @@
 import 'package:cookcraft/Page/profilePage.dart';
 import 'package:flutter/material.dart';
-import '../Components/navigationBar.dart'; // Import Navigation Bar
+import 'package:firebase_auth/firebase_auth.dart';
+import '../Components/navigationBar.dart';
 import '../Components/button/customFloatingButton.dart';
-import 'cameraPage.dart'; // ใช้ Camera Page
-import 'mainPage.dart'; // Import Main Page
+import 'cameraPage.dart';
+import 'mainPage.dart';
 import 'addReciepPage.dart';
+import 'auth/login.dart';
 
 class BookmarkPage extends StatefulWidget {
   const BookmarkPage({Key? key}) : super(key: key);
@@ -14,8 +16,8 @@ class BookmarkPage extends StatefulWidget {
 }
 
 class _BookmarkPageState extends State<BookmarkPage> {
-  int _currentIndex = 2; // ตำแหน่งเริ่มต้นของ "สูตรอาหาร"
-  final List<String> _searchTags = []; // รายการแท็กที่ใช้ร่วมกันในหน้า
+  int _currentIndex = 2;
+  final List<String> _searchTags = [];
 
   void _addSearchTag(String tag) {
     if (tag.isNotEmpty && !_searchTags.contains(tag)) {
@@ -31,6 +33,23 @@ class _BookmarkPageState extends State<BookmarkPage> {
     });
   }
 
+  void _handleFloatingButtonPress() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      debugPrint("🔴 ผู้ใช้ยังไม่ได้ล็อกอิน พาไปหน้า LoginPage");
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()), // พาไปหน้า Login ก่อน
+      );
+    } else {
+      debugPrint("🟢 ผู้ใช้ล็อกอินแล้ว พาไปหน้า AddRecipePage");
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddRecipePage()), // ถ้าล็อกอินแล้วไปหน้าเพิ่มสูตร
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,7 +62,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context); // กลับไปหน้าก่อนหน้า
+            Navigator.pop(context);
           },
         ),
       ),
@@ -80,7 +99,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
           setState(() {
             _currentIndex = 0;
           });
-          Navigator.popUntil(context, (route) => route.isFirst); // กลับไปหน้า MainPage
+          Navigator.popUntil(context, (route) => route.isFirst);
         },
         onCameraPressed: () async {
           final List<String>? newTags = await Navigator.push(
@@ -91,35 +110,29 @@ class _BookmarkPageState extends State<BookmarkPage> {
           );
           if (newTags != null) {
             for (var tag in newTags) {
-              _addSearchTag(tag); // เพิ่มแท็กจาก CameraPage
+              _addSearchTag(tag);
             }
-            // หลังเพิ่มแท็กเสร็จ กลับไปหน้า "ค้นหา"
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
                 builder: (context) => MainPage(searchTags: _searchTags),
               ),
-                  (route) => false, // ลบหน้าเก่าทั้งหมด
+                  (route) => false,
             );
           }
         },
         onRecipePressed: () {
           setState(() {
-            _currentIndex = 2; // คงอยู่ในหน้า "สูตรอาหาร"
+            _currentIndex = 2;
           });
         },
         onProfilePressed: () {
           Navigator.push(context,
-          MaterialPageRoute(builder: (context) => const ProfilePage()));
+              MaterialPageRoute(builder: (context) => const ProfilePage()));
         },
       ),
       floatingActionButton: CustomFloatingButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddRecipePage()),
-          );
-        },
+        onPressed: _handleFloatingButtonPress,
       ),
     );
   }

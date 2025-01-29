@@ -185,7 +185,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
                           controller: ingredientControllers[index],
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
-                            hintText: "เพิ่มส่วนผสม เช่น ไข่ไก่ 3 ฟอง", // ใช้ hintText
+                            hintText: "เพิ่มส่วนผสม เช่น ไข่ 3 ฟอง", // ใช้ hintText
                           ),
                         ),
                       ),

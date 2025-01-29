@@ -1,57 +1,63 @@
 import 'package:flutter/material.dart';
 
 class RecipeBottomNavigationBar extends StatelessWidget {
+  final int currentIndex;
+  final VoidCallback onSearchPressed;
   final VoidCallback onCameraPressed;
   final VoidCallback onRecipePressed;
-  final VoidCallback onSearchPressed; // Callback สำหรับ "ค้นหา"
-  final VoidCallback onProfilePressed; // Callback สำหรับ "โปรไฟล์"
-  final int currentIndex; // รับค่าดัชนีปัจจุบัน
+  final VoidCallback onProfilePressed;
 
   const RecipeBottomNavigationBar({
     Key? key,
+    required this.currentIndex,
+    required this.onSearchPressed,
     required this.onCameraPressed,
     required this.onRecipePressed,
-    required this.onSearchPressed,
     required this.onProfilePressed,
-    required this.currentIndex, // กำหนดค่าเริ่มต้น
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
+      currentIndex: currentIndex,
+      selectedItemColor: Colors.black,
+      unselectedItemColor: Colors.black54,
+      backgroundColor: Colors.blue,
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.lightBlueAccent,
-      unselectedItemColor: Colors.grey,
-      currentIndex: currentIndex, // ใช้ currentIndex ที่รับเข้ามา
-      onTap: (index) {
-        if (index == 0) {
-          onSearchPressed(); // ค้นหา
-        } else if (index == 1) {
-          onCameraPressed(); // กล้อง
-        } else if (index == 2) {
-          onRecipePressed(); // สูตรอาหาร
-        } else if (index == 3) {
-          onProfilePressed(); // โปรไฟล์
-        }
-      },
       items: const [
         BottomNavigationBarItem(
           icon: Icon(Icons.search),
-          label: "ค้นหา",
+          label: 'ค้นหา',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.camera_alt),
-          label: "กล้อง",
+          label: 'กล้อง',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.receipt),
-          label: "สูตรอาหาร",
+          icon: Icon(Icons.book),
+          label: 'สูตรอาหาร',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: "โปรไฟล์",
+          icon: Icon(Icons.account_circle),
+          label: 'โปรไฟล์',
         ),
       ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            onSearchPressed();
+            break;
+          case 1:
+            onCameraPressed();
+            break;
+          case 2:
+            onRecipePressed();
+            break;
+          case 3:
+            onProfilePressed();
+            break;
+        }
+      },
     );
   }
 }

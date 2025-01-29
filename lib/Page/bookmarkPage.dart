@@ -127,8 +127,10 @@ class _BookmarkPageState extends State<BookmarkPage> {
           });
         },
         onProfilePressed: () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfilePage()),
+          );
         },
       ),
       floatingActionButton: CustomFloatingButton(

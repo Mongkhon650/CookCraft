@@ -3,9 +3,11 @@ import '../Components/searchBar.dart';
 import '../Components/searchResult.dart';
 import '../Components/tagList.dart';
 import '../Components/navigationBar.dart'; // Navigation Bar
+import '../Components/button/customFloatingButton.dart';
 import 'cameraPage.dart'; // CameraPage
 import 'bookmarkPage.dart'; // BookmarkPage
 import 'profilePage.dart';
+import 'addReciepPage.dart';
 
 class MainPage extends StatefulWidget {
   final List<String>? searchTags; // เพิ่มพารามิเตอร์ searchTags
@@ -82,13 +84,13 @@ class _MainPageState extends State<MainPage> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: CustomFloatingButton(
         onPressed: () {
-          debugPrint("เพิ่มสูตรอาหารใหม่");
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddRecipePage()),
+          );
         },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-        shape: const CircleBorder(),
       ),
     );
   }

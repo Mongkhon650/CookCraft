@@ -1,8 +1,10 @@
 import 'package:cookcraft/Page/profilePage.dart';
 import 'package:flutter/material.dart';
 import '../Components/navigationBar.dart'; // Import Navigation Bar
+import '../Components/button/customFloatingButton.dart';
 import 'cameraPage.dart'; // ใช้ Camera Page
 import 'mainPage.dart'; // Import Main Page
+import 'addReciepPage.dart';
 
 class BookmarkPage extends StatefulWidget {
   const BookmarkPage({Key? key}) : super(key: key);
@@ -111,13 +113,13 @@ class _BookmarkPageState extends State<BookmarkPage> {
           MaterialPageRoute(builder: (context) => const ProfilePage()));
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: CustomFloatingButton(
         onPressed: () {
-          debugPrint("เพิ่มรายการ Bookmark ใหม่");
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddRecipePage()),
+          );
         },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-        shape: const CircleBorder(),
       ),
     );
   }

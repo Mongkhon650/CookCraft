@@ -13,7 +13,7 @@ class SearchResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('Receipt').snapshots(),
+      stream: FirebaseFirestore.instance.collection('recipes').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -22,22 +22,20 @@ class SearchResult extends StatelessWidget {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("ไม่มีข้อมูลที่ตรงกับคำค้นหา", style: TextStyle(color: Colors.grey)),
+            child: Text("ไม่มีข้อมูลสูตรอาหาร", style: TextStyle(color: Colors.grey)),
           );
         }
 
         final allRecipes = snapshot.data!.docs;
-        final filteredRecipes = allRecipes.where((recipe) {
-          final ingredients = List<String>.from(recipe['ingredients']);
-          final name = recipe['name'].toString();
 
-          // ตรวจสอบว่า tags ทั้งหมดอยู่ใน ingredients หรือไม่
-          return searchTags.every((tag) {
-            final regex = RegExp(tag, caseSensitive: false);
-            return ingredients.any((ingredient) => regex.hasMatch(ingredient));
-          }) || searchTags.any((tag) {
-            final regex = RegExp(tag, caseSensitive: false);
-            return regex.hasMatch(name);
+        // ✅ กรองข้อมูลเฉพาะที่ค้นหา หรือ แสดงทั้งหมดถ้า searchTags ว่าง
+        final filteredRecipes = searchTags.isEmpty
+            ? allRecipes // ถ้าไม่มีการค้นหา แสดงทุกสูตร
+            : allRecipes.where((recipe) {
+          final name = recipe['name'].toString().toLowerCase().trim();
+          return searchTags.any((tag) {
+            final query = tag.toLowerCase().trim();
+            return name.contains(query);
           });
         }).toList();
 
@@ -59,12 +57,13 @@ class SearchResult extends StatelessWidget {
           itemCount: filteredRecipes.length,
           itemBuilder: (context, index) {
             final recipe = filteredRecipes[index];
+
             return GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => RecipeDetailPage(recipeId: recipe.id), // ส่ง ID ไปหน้า RecipeDetailPage
+                    builder: (context) => RecipeDetailPage(recipeId: recipe.id),
                   ),
                 );
               },
@@ -72,7 +71,7 @@ class SearchResult extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8.0),
                   image: DecorationImage(
-                    image: NetworkImage(recipe['image_url']),
+                    image: NetworkImage(recipe['image_url'] ?? ""),
                     fit: BoxFit.cover,
                   ),
                 ),

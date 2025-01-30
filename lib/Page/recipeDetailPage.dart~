@@ -36,7 +36,7 @@ class RecipeDetailPage extends StatelessWidget {
           }
 
           final recipeData = snapshot.data!.data() as Map<String, dynamic>;
-          final String userId = recipeData['user_id'] ?? ''; // เปลี่ยนเป็น String
+          final DocumentReference? userRef = recipeData['user_id']; // ดึง reference
 
           return SingleChildScrollView(
             child: Column(
@@ -59,15 +59,16 @@ class RecipeDetailPage extends StatelessWidget {
                       Text(recipeData['name'] ?? "ไม่มีชื่อ", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
 
-                      // 🔹 ดึงชื่อผู้ใช้จาก Firestore ผ่าน user_id (String)
-                      FutureBuilder<DocumentSnapshot>(
-                        future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+                      // 🔹 ดึงชื่อผู้ใช้จาก Firestore (ใช้ DocumentReference)
+                      userRef != null
+                          ? FutureBuilder<DocumentSnapshot>(
+                        future: userRef.get(), // ใช้ reference ไปดึง Document
                         builder: (context, userSnapshot) {
                           if (userSnapshot.connectionState == ConnectionState.waiting) {
                             return const Text("กำลังโหลดข้อมูลผู้ใช้...");
                           }
                           if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-                            return const Text("โพสต์โดย: ไม่ระบุ");
+                            return const Text("ไม่พบข้อมูลผู้ใช้");
                           }
                           final userData = userSnapshot.data!.data() as Map<String, dynamic>;
                           final String displayName = userData['display_name'] ?? "ไม่ระบุ";
@@ -80,7 +81,9 @@ class RecipeDetailPage extends StatelessWidget {
                             ],
                           );
                         },
-                      ),
+                      )
+                          : const Text("โพสต์โดย: ไม่ระบุ"),
+
                       const SizedBox(height: 8),
 
                       // เวลาที่ใช้ในการทำอาหาร

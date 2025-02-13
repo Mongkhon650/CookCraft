@@ -104,7 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('ออกจากระบบ'),
+              child: const Text('ออกจากระบบ', style: TextStyle(color: Colors.black),),
             ),
           ],
         );

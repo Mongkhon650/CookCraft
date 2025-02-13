@@ -55,7 +55,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-
 flutter_icons:
   android: true
   image_path: "assets/icon_app.png"

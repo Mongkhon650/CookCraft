@@ -58,13 +58,10 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.blue,
-              child: Text(
-                'Cook\nCraft',
-                style: TextStyle(color: Colors.white, fontSize: 24),
-              ),
+            Image.asset(
+              'assets/icon.png', // ใช้ไอคอนใหม่
+              width: 100,
+              height: 100,
             ),
             SizedBox(height: 10),
             Text(

@@ -92,26 +92,29 @@ class _BookmarkPageState extends State<BookmarkPage> {
   Widget _buildBookmarkContent() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'สูตรอาหารที่ถูกใจ',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      child: SingleChildScrollView(  // ✅ แก้ไขตรงนี้
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'สูตรอาหารที่ถูกใจ',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          const Text('สูตรอาหารที่ถูกใจ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildBookmarkedRecipes(),
-          const SizedBox(height: 20),
-          const Text('สูตรอาหารที่ดูล่าสุด', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildRecentRecipes(), // ✅ เพิ่ม "สูตรอาหารที่ดูล่าสุด"
-        ],
+            const SizedBox(height: 20),
+            const Text('สูตรอาหารที่ถูกใจ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            _buildBookmarkedRecipes(),
+            const SizedBox(height: 20),
+            const Text('สูตรอาหารที่ดูล่าสุด', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            _buildRecentRecipes(),
+          ],
+        ),
       ),
     );
   }
+
 
   /// 📌 **ดึง "สูตรอาหารที่ถูกใจ" จาก Firestore**
   Widget _buildBookmarkedRecipes() {

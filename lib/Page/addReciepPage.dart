@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddRecipePage extends StatefulWidget {
   const AddRecipePage({Key? key}) : super(key: key);
@@ -21,6 +22,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
   List<XFile?> stepImages = [];
 
   XFile? recipeImage;
+  final user = FirebaseAuth.instance.currentUser; // ✅ ดึงข้อมูลผู้ใช้ปัจจุบัน
 
   @override
   void initState() {
@@ -89,43 +91,93 @@ class _AddRecipePageState extends State<AddRecipePage> {
 
   Future<void> saveRecipe({bool publish = false}) async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    if (user == null) return;
 
+    // อัปโหลดรูปภาพ
     final recipeImageUrl = await uploadImage(recipeImage);
     final stepImageUrls = await Future.wait(stepImages.map((image) => uploadImage(image)));
 
-    final recipeRef = await firestore.collection('recipes').add({
-      'name': nameController.text,
-      'serving': servingController.text,
-      'prep_time': timeController.text,
-      'image_url': recipeImageUrl ?? '',
-      'user_id': 'user_id_1',
-      'published': publish,
-    });
-
-    for (int i = 0; i < ingredientControllers.length; i++) {
-      await firestore.collection('ingredients').add({
-        'name': ingredientControllers[i]['name']!.text,
-        'quantity': {
-          'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
-          'unit': ingredientControllers[i]['unit']!.text,
-        },
-        'recipe_id': recipeRef.id,
+    if (publish) {
+      // ✅ **กรณีโพสต์ จะเพิ่มลง `recipes` (ที่ทุกคนเห็น)**
+      final recipeRef = await firestore.collection('recipes').add({
+        'name': nameController.text,
+        'serving': servingController.text,
+        'prep_time': timeController.text,
+        'image_url': recipeImageUrl ?? '',
+        'user_id': user!.uid,
+        'published': true, // ✅ ตั้งเป็น true เพราะโพสต์
       });
-    }
 
-    for (int i = 0; i < stepControllers.length; i++) {
-      await firestore.collection('steps').add({
-        'description': stepControllers[i].text,
-        'image_url': stepImageUrls[i] ?? '',
-        'recipe_id': recipeRef.id,
-        'step_number': i + 1,
+      // ✅ เพิ่มส่วนผสมและขั้นตอนลง `recipes`
+      for (int i = 0; i < ingredientControllers.length; i++) {
+        await firestore.collection('ingredients').add({
+          'name': ingredientControllers[i]['name']!.text,
+          'quantity': {
+            'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
+            'unit': ingredientControllers[i]['unit']!.text,
+          },
+          'recipe_id': recipeRef.id,
+        });
+      }
+
+      for (int i = 0; i < stepControllers.length; i++) {
+        await firestore.collection('steps').add({
+          'description': stepControllers[i].text,
+          'image_url': stepImageUrls[i] ?? '',
+          'recipe_id': recipeRef.id,
+          'step_number': i + 1,
+        });
+      }
+
+    } else {
+      // ✅ **กรณี "บันทึก" จะเก็บไว้แค่ใน `my_recipes` ของ user**
+      final userRecipeRef = await firestore.collection('users').doc(user!.uid)
+          .collection('my_recipes')
+          .add({
+        'name': nameController.text,
+        'serving': servingController.text,
+        'prep_time': timeController.text,
+        'image_url': recipeImageUrl ?? '',
+        'user_id': user!.uid,
+        'published': false, // ✅ ตั้งเป็น false เพราะยังไม่ได้โพสต์
       });
+
+      // ✅ เพิ่มส่วนผสมและขั้นตอนลง `my_recipes`
+      for (int i = 0; i < ingredientControllers.length; i++) {
+        await firestore.collection('users').doc(user!.uid)
+            .collection('my_recipes')
+            .doc(userRecipeRef.id)
+            .collection('ingredients')
+            .add({
+          'name': ingredientControllers[i]['name']!.text,
+          'quantity': {
+            'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
+            'unit': ingredientControllers[i]['unit']!.text,
+          },
+        });
+      }
+
+      for (int i = 0; i < stepControllers.length; i++) {
+        await firestore.collection('users').doc(user!.uid)
+            .collection('my_recipes')
+            .doc(userRecipeRef.id)
+            .collection('steps')
+            .add({
+          'description': stepControllers[i].text,
+          'image_url': stepImageUrls[i] ?? '',
+          'step_number': i + 1,
+        });
+      }
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(publish ? 'สูตรอาหารถูกโพสต์เรียบร้อยแล้ว' : 'สูตรอาหารถูกบันทึกเรียบร้อยแล้ว')),
     );
+
+    Navigator.pop(context);
   }
+
+
 
   @override
   Widget build(BuildContext context) {

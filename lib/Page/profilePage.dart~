@@ -27,7 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
         automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
       body: Center(
-        child: user != null ? _buildUserProfile(user!) : _buildLoginPrompt(context),
+        child: user != null ? _buildUserProfile(user) : _buildLoginPrompt(context),
       ),
       bottomNavigationBar: RecipeBottomNavigationBar(
         currentIndex: 3,

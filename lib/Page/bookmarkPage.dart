@@ -92,26 +92,144 @@ class _BookmarkPageState extends State<BookmarkPage> {
   Widget _buildBookmarkContent() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(  // ✅ แก้ไขตรงนี้
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search),
-                hintText: 'สูตรอาหารที่ถูกใจ',
+                hintText: 'ค้นหาสูตรอาหารที่ถูกใจ',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             const SizedBox(height: 20),
+
+            // ✅ แสดง "สูตรอาหารของคุณ"
+            const Text('สูตรอาหารของคุณ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            _buildYourRecipes(), // ✅ เพิ่มส่วนนี้
+
+            const SizedBox(height: 20),
             const Text('สูตรอาหารที่ถูกใจ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildBookmarkedRecipes(),
+
             const SizedBox(height: 20),
             const Text('สูตรอาหารที่ดูล่าสุด', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildRecentRecipes(),
           ],
         ),
       ),
+    );
+  }
+
+// ✅ เพิ่ม `สูตรอาหารของคุณ`
+  Widget _buildYourRecipes() {
+    if (user == null) return const Text("กรุณาเข้าสู่ระบบ");
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('my_recipes') // ✅ ใช้ `my_recipes`
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Text("ยังไม่มีสูตรอาหารของคุณ", style: TextStyle(color: Colors.grey));
+        }
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: snapshot.data!.docs.map((doc) {
+            final recipeId = doc.id;
+            final recipeData = doc.data() as Map<String, dynamic>;
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RecipeDetailPage(recipeId: recipeId),
+                  ),
+                );
+              },
+              child: Column(
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      image: recipeData['image_url'] != null
+                          ? DecorationImage(image: NetworkImage(recipeData['image_url']), fit: BoxFit.cover)
+                          : null,
+                      color: recipeData['image_url'] == null ? Colors.grey[300] : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: recipeData['image_url'] == null ? const Text("ไม่มีรูป", style: TextStyle(color: Colors.black)) : null,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(recipeData['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+
+  /// 📌 **ดึงข้อมูลสูตรที่บันทึกไว้ แล้วให้สามารถกด "โพสต์" ได้**
+  Widget _buildYourRecipeItem(String recipeId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('recipes').doc(recipeId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox();
+        }
+
+        final recipeData = snapshot.data!.data() as Map<String, dynamic>;
+        final String recipeName = recipeData['name'] ?? 'ไม่มีชื่อ';
+        final String imageUrl = recipeData['image_url'] ?? '';
+
+        return ListTile(
+          leading: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              image: imageUrl.isNotEmpty
+                  ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                  : null,
+              color: imageUrl.isEmpty ? Colors.grey[300] : null,
+            ),
+            alignment: Alignment.center,
+            child: imageUrl.isEmpty ? const Icon(Icons.no_food, color: Colors.black54) : null,
+          ),
+          title: Text(recipeName),
+          trailing: TextButton(
+            child: const Text("โพสต์"),
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('recipes').doc(recipeId).update({'published': true});
+              await FirebaseFirestore.instance.collection('users').doc(user!.uid)
+                  .collection('my_recipes')
+                  .doc(recipeId)
+                  .delete(); // ✅ ลบออกจาก "สูตรอาหารของคุณ"
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('สูตรอาหารถูกโพสต์แล้ว!')),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

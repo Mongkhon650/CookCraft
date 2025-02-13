@@ -1,22 +1,62 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class AddRecipePage extends StatefulWidget {
-  const AddRecipePage({Key? key}) : super(key: key);
-
-  @override
-  _AddRecipePageState createState() => _AddRecipePageState();
-}
-
-class RecipeDetailPage extends StatelessWidget {
-  final String recipeId; // รับ ID ของสูตรอาหาร
+class RecipeDetailPage extends StatefulWidget {
+  final String recipeId;
 
   const RecipeDetailPage({
     Key? key,
     required this.recipeId,
   }) : super(key: key);
+
+  @override
+  _RecipeDetailPageState createState() => _RecipeDetailPageState();
+}
+
+class _RecipeDetailPageState extends State<RecipeDetailPage> {
+  bool isBookmarked = false;
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfBookmarked();
+    _saveToRecentViews(widget.recipeId);
+  }
+
+  void _checkIfBookmarked() async {
+    if (user == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection('bookmarks')
+        .doc(widget.recipeId)
+        .get();
+    if (doc.exists) {
+      setState(() {
+        isBookmarked = true;
+      });
+    }
+  }
+
+  void _toggleBookmark() async {
+    if (user == null) return;
+    final bookmarkRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection('bookmarks')
+        .doc(widget.recipeId);
+
+    if (isBookmarked) {
+      await bookmarkRef.delete();
+    } else {
+      await bookmarkRef.set({'recipe_id': widget.recipeId});
+    }
+    setState(() {
+      isBookmarked = !isBookmarked;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,9 +70,21 @@ class RecipeDetailPage extends StatelessWidget {
             Navigator.pop(context);
           },
         ),
+        actions: [
+          IconButton(
+            icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+            onPressed: _toggleBookmark,
+          ),
+          IconButton(
+            icon: Icon(Icons.more_vert),
+            onPressed: () {
+              _showReportMenu(context);
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('recipes').doc(recipeId).get(),
+        future: FirebaseFirestore.instance.collection('recipes').doc(widget.recipeId).get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -45,13 +97,12 @@ class RecipeDetailPage extends StatelessWidget {
           }
 
           final recipeData = snapshot.data!.data() as Map<String, dynamic>;
-          final String userId = recipeData['user_id'] ?? ''; // เปลี่ยนเป็น String
+          final String userId = recipeData['user_id'] ?? '';
 
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // แสดงรูปสูตรอาหาร
                 recipeData['image_url'] != null
                     ? Image.network(recipeData['image_url'], width: double.infinity, height: 200, fit: BoxFit.cover)
                     : Container(
@@ -65,10 +116,22 @@ class RecipeDetailPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(recipeData['name'] ?? "ไม่มีชื่อ", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              recipeData['name'] ?? "ไม่มีชื่อ",
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+                            onPressed: _toggleBookmark,
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 8),
 
-                      // 🔹 ดึงชื่อผู้ใช้จาก Firestore ผ่าน user_id (String)
                       FutureBuilder<DocumentSnapshot>(
                         future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
                         builder: (context, userSnapshot) {
@@ -92,7 +155,6 @@ class RecipeDetailPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
-                      // เวลาที่ใช้ในการทำอาหาร
                       Row(
                         children: [
                           const Icon(Icons.access_time, size: 24, color: Colors.black),
@@ -102,7 +164,6 @@ class RecipeDetailPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
-                      // จำนวนเสิร์ฟ
                       Row(
                         children: [
                           const Icon(Icons.people, size: 24, color: Colors.black),
@@ -112,48 +173,32 @@ class RecipeDetailPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
 
-                      // ส่วนผสม
                       const Text("ส่วนผสม", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
                       FutureBuilder<QuerySnapshot>(
-                        future: FirebaseFirestore.instance.collection('ingredients').where('recipe_id', isEqualTo: recipeId).get(),
+                        future: FirebaseFirestore.instance.collection('ingredients').where('recipe_id', isEqualTo: widget.recipeId).get(),
                         builder: (context, ingredientSnapshot) {
                           if (ingredientSnapshot.connectionState == ConnectionState.waiting) {
                             return const CircularProgressIndicator();
                           }
-
-                          if (!ingredientSnapshot.hasData || ingredientSnapshot.data!.docs.isEmpty) {
-                            return const Text("ไม่มีข้อมูลส่วนผสม");
-                          }
-
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: ingredientSnapshot.data!.docs.map((doc) {
                               final data = doc.data() as Map<String, dynamic>;
-                              final amount = data['quantity']['amount']?.toString() ?? "ไม่ระบุ";
-                              final unit = data['quantity']['unit'] ?? "ไม่ระบุ";
-
-                              return Text("- ${data['name']} $amount $unit");
+                              return Text("- ${data['name']} ${data['quantity']['amount']} ${data['quantity']['unit']}");
                             }).toList(),
                           );
                         },
                       ),
                       const SizedBox(height: 16),
 
-                      // ขั้นตอนการทำ
                       const Text("วิธีทำ", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       FutureBuilder<QuerySnapshot>(
-                        future: FirebaseFirestore.instance.collection('steps').where('recipe_id', isEqualTo: recipeId).orderBy('step_number').get(),
+                        future: FirebaseFirestore.instance.collection('steps').where('recipe_id', isEqualTo: widget.recipeId).orderBy('step_number').get(),
                         builder: (context, stepsSnapshot) {
                           if (stepsSnapshot.connectionState == ConnectionState.waiting) {
                             return const CircularProgressIndicator();
                           }
-
-                          if (!stepsSnapshot.hasData || stepsSnapshot.data!.docs.isEmpty) {
-                            return const Text("ไม่มีข้อมูลขั้นตอนการทำ");
-                          }
-
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: stepsSnapshot.data!.docs.map((step) {
@@ -161,8 +206,7 @@ class RecipeDetailPage extends StatelessWidget {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text("ขั้นตอนที่ ${stepData['step_number']}: ${stepData['description']}",
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  Text("ขั้นตอนที่ ${stepData['step_number']}: ${stepData['description']}"),
                                   if (stepData['image_url'] != null && stepData['image_url'].isNotEmpty)
                                     Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -182,6 +226,25 @@ class RecipeDetailPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  void _showReportMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Wrap(
+          children: [
+            ListTile(
+              leading: Icon(Icons.report, color: Colors.red),
+              title: Text('รายงานสูตรอาหาร'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

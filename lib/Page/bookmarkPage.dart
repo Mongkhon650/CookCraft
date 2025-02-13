@@ -1,12 +1,14 @@
 import 'package:cookcraft/Page/profilePage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../Components/navigationBar.dart';
 import '../Components/button/customFloatingButton.dart';
 import 'cameraPage.dart';
 import 'mainPage.dart';
 import 'addReciepPage.dart';
 import 'auth/login.dart';
+import 'recipeDetailPage.dart';
 
 class BookmarkPage extends StatefulWidget {
   const BookmarkPage({Key? key}) : super(key: key);
@@ -18,6 +20,7 @@ class BookmarkPage extends StatefulWidget {
 class _BookmarkPageState extends State<BookmarkPage> {
   int _currentIndex = 2;
   final List<String> _searchTags = [];
+  final User? user = FirebaseAuth.instance.currentUser;
 
   void _addSearchTag(String tag) {
     if (tag.isNotEmpty && !_searchTags.contains(tag)) {
@@ -27,33 +30,8 @@ class _BookmarkPageState extends State<BookmarkPage> {
     }
   }
 
-  void _removeSearchTag(String tag) {
-    setState(() {
-      _searchTags.remove(tag);
-    });
-  }
-
-  void _handleFloatingButtonPress() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      debugPrint("🔴 ผู้ใช้ยังไม่ได้ล็อกอิน พาไปหน้า LoginPage");
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => LoginPage()), // พาไปหน้า Login ก่อน
-      );
-    } else {
-      debugPrint("🟢 ผู้ใช้ล็อกอินแล้ว พาไปหน้า AddRecipePage");
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AddRecipePage()), // ถ้าล็อกอินแล้วไปหน้าเพิ่มสูตร
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -61,7 +39,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
           style: TextStyle(color: Colors.black),
         ),
         backgroundColor: Colors.blue,
-        automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
+        automaticallyImplyLeading: false,
       ),
       body: user != null ? _buildBookmarkContent() : _buildLoginPrompt(),
       bottomNavigationBar: RecipeBottomNavigationBar(
@@ -126,33 +104,121 @@ class _BookmarkPageState extends State<BookmarkPage> {
           ),
           const SizedBox(height: 20),
           const Text('สูตรอาหารที่ถูกใจ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: List.generate(4, (index) => _buildRecipeCard()),
-          ),
+          _buildBookmarkedRecipes(),
           const SizedBox(height: 20),
-          const Text('สูตรอาหารที่ล่าสุด', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildRecipeCard(),
+          const Text('สูตรอาหารที่ดูล่าสุด', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          _buildRecentRecipes(), // ✅ เพิ่ม "สูตรอาหารที่ดูล่าสุด"
         ],
       ),
     );
   }
 
-  Widget _buildRecipeCard() {
-    return Container(
-      width: 100,
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.blueAccent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        'สูตรอาหาร',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
+  /// 📌 **ดึง "สูตรอาหารที่ถูกใจ" จาก Firestore**
+  Widget _buildBookmarkedRecipes() {
+    return _buildRecipeList('bookmarks');
+  }
+
+  /// 📌 **ดึง "สูตรอาหารที่ดูล่าสุด" จาก Firestore**
+  Widget _buildRecentRecipes() {
+    return _buildRecipeList('recent_views', orderByTimestamp: true);
+  }
+
+  /// 📌 **ดึงข้อมูลสูตรอาหารจาก Firestore (รองรับทั้ง "ที่ถูกใจ" และ "ดูล่าสุด")**
+  Widget _buildRecipeList(String collectionName, {bool orderByTimestamp = false}) {
+    if (user == null) return const Text("กรุณาเข้าสู่ระบบ");
+
+    Query query = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection(collectionName);
+
+    if (orderByTimestamp) {
+      query = query.orderBy('timestamp', descending: true);
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Text("ไม่มีข้อมูล", style: TextStyle(color: Colors.grey));
+        }
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: snapshot.data!.docs.map((doc) {
+            final recipeId = doc['recipe_id'];
+            return _buildRecipeItem(recipeId);
+          }).toList(),
+        );
+      },
     );
+  }
+
+  /// 📌 **ดึงข้อมูลสูตรอาหารแต่ละรายการจาก Firestore และแสดงรูปภาพ**
+  Widget _buildRecipeItem(String recipeId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('recipes').doc(recipeId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            width: 120,
+            height: 150,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox();
+        }
+
+        final recipeData = snapshot.data!.data() as Map<String, dynamic>;
+        final String recipeName = recipeData['name'] ?? 'ไม่มีชื่อ';
+        final String imageUrl = recipeData['image_url'] ?? '';
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RecipeDetailPage(recipeId: recipeId),
+              ),
+            );
+          },
+          child: Column(
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  image: imageUrl.isNotEmpty
+                      ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                      : null,
+                  color: imageUrl.isEmpty ? Colors.grey[300] : null,
+                ),
+                alignment: Alignment.center,
+                child: imageUrl.isEmpty ? const Text("ไม่มีรูป", style: TextStyle(color: Colors.black)) : null,
+              ),
+              const SizedBox(height: 5),
+              Text(recipeName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 🛑 **ปุ่มลอย กดแล้วเพิ่มสูตรอาหารใหม่**
+  void _handleFloatingButtonPress() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => LoginPage()));
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const AddRecipePage()));
+    }
   }
 
   Widget _buildLoginPrompt() {
@@ -160,35 +226,12 @@ class _BookmarkPageState extends State<BookmarkPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.account_circle,
-            size: 100,
-            color: Colors.black,
-          ),
+          const Icon(Icons.account_circle, size: 100, color: Colors.black),
           const SizedBox(height: 16),
-          const Text(
-            'คุณยังไม่ได้เข้าสู่ระบบ',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'กรุณาเข้าสู่ระบบ',
-            style: TextStyle(
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 20),
+          const Text('คุณยังไม่ได้เข้าสู่ระบบ', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ElevatedButton(
             onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => LoginPage()),
-              ).then((_) {
-                setState(() {}); // รีโหลดหน้าเมื่อกลับมาจากล็อกอิน
-              });
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
             },
             child: const Text('เข้าสู่ระบบ'),
           ),

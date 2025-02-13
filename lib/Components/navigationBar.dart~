@@ -39,7 +39,7 @@ class RecipeBottomNavigationBar extends StatelessWidget {
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.account_circle),
-          label: 'โพรไฟล์',
+          label: 'โปรไฟล์',
         ),
       ],
       onTap: (index) {

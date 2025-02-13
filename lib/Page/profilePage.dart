@@ -80,11 +80,20 @@ class _ProfilePageState extends State<ProfilePage> {
             Text(displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             Text('@${email.split('@')[0]}', style: const TextStyle(fontSize: 16, color: Colors.black54)),
             const SizedBox(height: 20),
-            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30), // ปรับระยะขอบซ้าย-ขวา
+              child: Divider(thickness: 2, color: Colors.black), // เส้นแบ่ง
+            ),
             const SizedBox(height: 10),
-            _buildProfileOption('โปรไฟล์'),
-            _buildProfileOption('การตั้งค่า'),
-            _buildProfileOption('คำถามที่พบบ่อย'),
+            _buildProfileOption('โปรไฟล์', () {
+              print("กดที่: โปรไฟล์");
+            }),
+            _buildProfileOption('การตั้งค่า', () {
+              print("กดที่: การตั้งค่า");
+            }),
+            _buildProfileOption('คำถามที่พบบ่อย', () {
+              print("กดที่: คำถามที่พบบ่อย");
+            }),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
@@ -103,12 +112,16 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileOption(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+  /// ✅ **สร้างปุ่มเมนูที่กดได้**
+  Widget _buildProfileOption(String title, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap, // รองรับการกด
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
       ),
     );
   }

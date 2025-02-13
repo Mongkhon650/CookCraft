@@ -29,7 +29,7 @@ class _RoboflowAPIPageState extends State<RoboflowAPIPage> {
 
   Future<void> _uploadImage(File imageFile) async {
     const String apiUrl =
-        "https://detect.roboflow.com/infer/workflows/cookcraft/custom-workflow-2";
+        "https://detect.roboflow.com/infer/workflows/cookcraft/ingredients-detect";
     const String apiKey = "5lWpmu1oPRR9oki4mJof";
 
     try {

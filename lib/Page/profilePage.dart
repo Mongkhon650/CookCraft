@@ -1,10 +1,10 @@
-import 'package:cookcraft/Page/bookmarkPage.dart';
-import 'package:cookcraft/Page/cameraPage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cookcraft/Page/auth/login.dart';
 import '../Components/navigationBar.dart';
 import 'mainPage.dart';
+import 'cameraPage.dart';
+import 'bookmarkPage.dart';
+import 'auth/login.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -23,12 +23,13 @@ class _ProfilePageState extends State<ProfilePage> {
         title: const Text('Cookcraft', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.blue,
         elevation: 0,
+        automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
       body: Center(
         child: user != null ? _buildUserProfile(user) : _buildLoginPrompt(context),
       ),
       bottomNavigationBar: RecipeBottomNavigationBar(
-        currentIndex: 3, // อยู่ที่หน้าโปรไฟล์
+        currentIndex: 3,
         onSearchPressed: () {
           Navigator.pushReplacement(
             context,
@@ -81,7 +82,10 @@ class _ProfilePageState extends State<ProfilePage> {
         ElevatedButton(
           onPressed: () async {
             await FirebaseAuth.instance.signOut();
-            setState(() {}); // รีโหลดหน้าเมื่อออกจากระบบ
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainPage()),
+            );
           },
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           child: const Text('ออกจากระบบ'),

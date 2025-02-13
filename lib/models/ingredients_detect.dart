@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class IngredientsDetect {
-  static const String apiUrl = "https://detect.roboflow.com/infer/workflows/cookcraft-iw7kf/accurate-segment";
-  static const String apiKey = "j8tJt0OXoEsb8o0blhHp";
+  static const String apiUrl = "https://detect.roboflow.com/infer/workflows/cookcraft/ingredients-detect";
+  static const String apiKey = "5lWpmu1oPRR9oki4mJof";
 
   static Future<Map<String, dynamic>> analyzeImage(String imagePath) async {
     try {

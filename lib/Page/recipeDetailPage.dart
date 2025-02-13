@@ -98,7 +98,7 @@ class RecipeDetailPage extends StatelessWidget {
                         children: [
                           const Icon(Icons.people, size: 24, color: Colors.black),
                           const SizedBox(width: 8),
-                          Text("เสิร์ฟ: ${recipeData['serving'] ?? 'ไม่ระบุ'} คน"),
+                          Text("เสิร์ฟ: ${recipeData['serving'] ?? 'ไม่ระบุ'}"),
                         ],
                       ),
                       const SizedBox(height: 16),

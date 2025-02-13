@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class AddRecipePage extends StatefulWidget {
   const AddRecipePage({Key? key}) : super(key: key);
@@ -14,7 +16,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
   final TextEditingController servingController = TextEditingController();
   final TextEditingController timeController = TextEditingController();
 
-  List<TextEditingController> ingredientControllers = [];
+  List<Map<String, TextEditingController>> ingredientControllers = [];
   List<TextEditingController> stepControllers = [];
   List<XFile?> stepImages = [];
 
@@ -23,13 +25,11 @@ class _AddRecipePageState extends State<AddRecipePage> {
   @override
   void initState() {
     super.initState();
-    ingredientControllers.add(TextEditingController()); // ลบค่าที่ตั้งไว้
-    ingredientControllers.add(TextEditingController());
+    addIngredient();
     stepControllers.add(TextEditingController());
-    stepImages.add(null); // รูปของขั้นตอนแรก
+    stepImages.add(null);
   }
 
-  // ฟังก์ชันเลือกรูปอาหาร
   Future<void> pickRecipeImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -40,7 +40,6 @@ class _AddRecipePageState extends State<AddRecipePage> {
     }
   }
 
-  // ฟังก์ชันเลือกรูปของแต่ละขั้นตอน
   Future<void> pickStepImage(int index) async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -53,14 +52,18 @@ class _AddRecipePageState extends State<AddRecipePage> {
 
   void addIngredient() {
     setState(() {
-      ingredientControllers.add(TextEditingController());
+      ingredientControllers.add({
+        'name': TextEditingController(),
+        'amount': TextEditingController(),
+        'unit': TextEditingController(),
+      });
     });
   }
 
   void addStep() {
     setState(() {
       stepControllers.add(TextEditingController());
-      stepImages.add(null); // เพิ่มตัวเก็บรูปของขั้นตอนใหม่
+      stepImages.add(null);
     });
   }
 
@@ -77,6 +80,53 @@ class _AddRecipePageState extends State<AddRecipePage> {
     });
   }
 
+  Future<String?> uploadImage(XFile? image) async {
+    if (image == null) return null;
+    final storageRef = FirebaseStorage.instance.ref().child('images/${DateTime.now().millisecondsSinceEpoch}');
+    await storageRef.putFile(File(image.path));
+    return await storageRef.getDownloadURL();
+  }
+
+  Future<void> saveRecipe({bool publish = false}) async {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+    final recipeImageUrl = await uploadImage(recipeImage);
+    final stepImageUrls = await Future.wait(stepImages.map((image) => uploadImage(image)));
+
+    final recipeRef = await firestore.collection('recipes').add({
+      'name': nameController.text,
+      'serving': servingController.text,
+      'prep_time': timeController.text,
+      'image_url': recipeImageUrl ?? '',
+      'user_id': 'user_id_1',
+      'published': publish,
+    });
+
+    for (int i = 0; i < ingredientControllers.length; i++) {
+      await firestore.collection('ingredients').add({
+        'name': ingredientControllers[i]['name']!.text,
+        'quantity': {
+          'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
+          'unit': ingredientControllers[i]['unit']!.text,
+        },
+        'recipe_id': recipeRef.id,
+      });
+    }
+
+    for (int i = 0; i < stepControllers.length; i++) {
+      await firestore.collection('steps').add({
+        'description': stepControllers[i].text,
+        'image_url': stepImageUrls[i] ?? '',
+        'recipe_id': recipeRef.id,
+        'step_number': i + 1,
+      });
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(publish ? 'สูตรอาหารถูกโพสต์เรียบร้อยแล้ว' : 'สูตรอาหารถูกบันทึกเรียบร้อยแล้ว')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,15 +138,11 @@ class _AddRecipePageState extends State<AddRecipePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              // TODO: Implement save recipe functionality
-            },
+            onPressed: () => saveRecipe(publish: false),
             child: const Text("บันทึก", style: TextStyle(color: Colors.white)),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: Implement upload functionality
-            },
+            onPressed: () => saveRecipe(publish: true),
             child: const Text("โพสต์", style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -106,7 +152,6 @@ class _AddRecipePageState extends State<AddRecipePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // รูปภาพอาหาร
             GestureDetector(
               onTap: pickRecipeImage,
               child: Container(
@@ -126,15 +171,11 @@ class _AddRecipePageState extends State<AddRecipePage> {
               ),
             ),
             const SizedBox(height: 10),
-
-            // ชื่อสูตร
             TextField(
               controller: nameController,
               decoration: const InputDecoration(labelText: "ชื่อสูตร", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 10),
-
-            // จำนวนเสิร์ฟและเวลา
             Row(
               children: [
                 Expanded(
@@ -146,7 +187,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
                         controller: servingController,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
-                          hintText: "1 คน", // ใช้ hintText แทนค่าเริ่มต้น
+                          hintText: "1 คน",
                         ),
                       ),
                     ],
@@ -162,7 +203,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
                         controller: timeController,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
-                          hintText: "30 นาที", // ใช้ hintText แทนค่าเริ่มต้น
+                          hintText: "30 นาที",
                         ),
                       ),
                     ],
@@ -171,27 +212,49 @@ class _AddRecipePageState extends State<AddRecipePage> {
               ],
             ),
             const SizedBox(height: 20),
-
-            // ส่วนผสม
             const Text("ส่วนผสม", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Column(
               children: List.generate(ingredientControllers.length, (index) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: ingredientControllers[index],
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: "เพิ่มส่วนผสม เช่น ไข่ไก่ 3 ฟอง", // ใช้ hintText
-                          ),
+                      TextField(
+                        controller: ingredientControllers[index]['name'],
+                        decoration: const InputDecoration(
+                          labelText: "ชื่อส่วนผสม",
+                          border: OutlineInputBorder(),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => removeIngredient(index),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: ingredientControllers[index]['amount'],
+                              decoration: const InputDecoration(
+                                labelText: "จำนวน",
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: ingredientControllers[index]['unit'],
+                              decoration: const InputDecoration(
+                                labelText: "หน่วย",
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => removeIngredient(index),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -206,17 +269,14 @@ class _AddRecipePageState extends State<AddRecipePage> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // วิธีทำ
             const Text("วิธีทำ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Column(
               children: List.generate(stepControllers.length, (index) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 5),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, // จัดให้อยู่ด้านบน
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ช่องป้อนข้อความ (อยู่ด้านบน)
                       Row(
                         children: [
                           Expanded(
@@ -224,20 +284,17 @@ class _AddRecipePageState extends State<AddRecipePage> {
                               controller: stepControllers[index],
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
-                                hintText: "เพิ่มขั้นตอน เช่น ตั้งกระทะแล้วใส่น้ำมัน", // ใช้ hintText
+                                hintText: "เพิ่มขั้นตอน เช่น ตั้งกระทะแล้วใส่น้ำมัน",
                               ),
                             ),
                           ),
-                          // ปุ่มลบ
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () => removeStep(index),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10), // ระยะห่างระหว่างช่องข้อความกับปุ่มเลือกภาพ
-
-                      // ปุ่มเลือกภาพขั้นตอน (อยู่ด้านล่าง)
+                      const SizedBox(height: 10),
                       GestureDetector(
                         onTap: () => pickStepImage(index),
                         child: Container(
@@ -255,7 +312,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10), // เพิ่มระยะห่าง
+                      const SizedBox(height: 10),
                     ],
                   ),
                 );

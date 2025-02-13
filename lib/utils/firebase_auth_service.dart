@@ -14,9 +14,11 @@ class AuthService {
       );
 
       // บันทึกข้อมูลผู้ใช้ลง Firestore
-      await _db.collection('User').doc(userCredential.user!.uid).set({
+      await _db.collection('users').doc(userCredential.user!.uid).set({
         'display_name': name,
         'email': email,
+        'is_banned': false,
+        'is_admin': false,
         'profile_image': '', // สามารถเพิ่มระบบอัปโหลดรูปโปรไฟล์ภายหลังได้
       });
 

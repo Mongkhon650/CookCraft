@@ -87,13 +87,13 @@ class _MainPageState extends State<MainPage> {
           }
         },
         onRecipePressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const BookmarkPage()),
           );
         },
         onProfilePressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ProfilePage()),
           );

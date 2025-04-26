@@ -19,7 +19,6 @@ class _CameraPageState extends State<CameraPage> {
 
   File? _image;
   bool _isLoading = false;
-  String _loadingMessage = "กำลังประมวลผล..."; // เพิ่มตัวแปรนี้
   List<Map<String, dynamic>> _predictions = [];
   List<String> _tags = [];
   double _imageWidth = 0;
@@ -51,23 +50,14 @@ class _CameraPageState extends State<CameraPage> {
   Future<void> _processImage(File image) async {
     setState(() {
       _isLoading = true;
-      _loadingMessage = "กำลังเตรียมรูปภาพ...";  // แสดงสถานะ
+      _loadingMessage = 'กําลังประมวลผลภาพ...';
     });
-
     try {
-      setState(() {
-        _loadingMessage = "กำลังวิเคราะห์รูปภาพ...";
-      });
-
       final result = await _imageProcessor.processImage(image);
       setState(() {
         _predictions = result["predictions"];
         _imageWidth = result["imageWidth"];
         _imageHeight = result["imageHeight"];
-      });
-
-      setState(() {
-        _loadingMessage = "กำลังแปลผลลัพธ์...";
       });
 
       // แปลชื่อวัตถุดิบเป็นภาษาไทย
@@ -159,14 +149,14 @@ class _CameraPageState extends State<CameraPage> {
       );
     } else if (_isLoading) {
       // Step 2: กำลังประมวลผล
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
             Text(
-              _loadingMessage,  // แสดงข้อความสถานะ
+              "กำลังประมวลผล",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],

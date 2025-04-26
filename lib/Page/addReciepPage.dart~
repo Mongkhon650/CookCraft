@@ -90,7 +90,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
       // ใช้ ImgBB API
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('https://api.imgbb.com/1/upload?key=394ba43219da88632dc7e5aad9cade87'),
+        Uri.parse('https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY_HERE'),
       );
 
       // แปลง XFile เป็น File

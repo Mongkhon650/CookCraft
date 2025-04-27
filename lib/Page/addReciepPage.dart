@@ -24,6 +24,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
 
   XFile? recipeImage;
   final user = FirebaseAuth.instance.currentUser; // ✅ ดึงข้อมูลผู้ใช้ปัจจุบัน
+  bool _isSaving = false; // เพิ่มตัวแปรแสดงสถานะกำลังบันทึก
 
   @override
   void initState() {
@@ -117,296 +118,430 @@ class _AddRecipePageState extends State<AddRecipePage> {
     }
   }
 
-  Future<void> saveRecipe({bool publish = false}) async {
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    if (user == null) return;
-
-    // อัปโหลดรูปภาพ
-    final recipeImageUrl = await uploadImage(recipeImage);
-    final stepImageUrls = await Future.wait(stepImages.map((image) => uploadImage(image)));
-
-    if (publish) {
-      // ✅ **กรณีโพสต์ จะเพิ่มลง `recipes` (ที่ทุกคนเห็น)**
-      final recipeRef = await firestore.collection('recipes').add({
-        'name': nameController.text,
-        'serving': servingController.text,
-        'prep_time': timeController.text,
-        'image_url': recipeImageUrl ?? '',
-        'user_id': user!.uid,
-        'published': true, // ✅ ตั้งเป็น true เพราะโพสต์
-      });
-
-      // ✅ เพิ่มส่วนผสมและขั้นตอนลง `recipes`
-      for (int i = 0; i < ingredientControllers.length; i++) {
-        await firestore.collection('ingredients').add({
-          'name': ingredientControllers[i]['name']!.text,
-          'quantity': {
-            'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
-            'unit': ingredientControllers[i]['unit']!.text,
-          },
-          'recipe_id': recipeRef.id,
-        });
-      }
-
-      for (int i = 0; i < stepControllers.length; i++) {
-        await firestore.collection('steps').add({
-          'description': stepControllers[i].text,
-          'image_url': stepImageUrls[i] ?? '',
-          'recipe_id': recipeRef.id,
-          'step_number': i + 1,
-        });
-      }
-
-    } else {
-      // ✅ **กรณี "บันทึก" จะเก็บไว้แค่ใน `my_recipes` ของ user**
-      final userRecipeRef = await firestore.collection('users').doc(user!.uid)
-          .collection('my_recipes')
-          .add({
-        'name': nameController.text,
-        'serving': servingController.text,
-        'prep_time': timeController.text,
-        'image_url': recipeImageUrl ?? '',
-        'user_id': user!.uid,
-        'published': false, // ✅ ตั้งเป็น false เพราะยังไม่ได้โพสต์
-      });
-
-      // ✅ เพิ่มส่วนผสมและขั้นตอนลง `my_recipes`
-      for (int i = 0; i < ingredientControllers.length; i++) {
-        await firestore.collection('users').doc(user!.uid)
-            .collection('my_recipes')
-            .doc(userRecipeRef.id)
-            .collection('ingredients')
-            .add({
-          'name': ingredientControllers[i]['name']!.text,
-          'quantity': {
-            'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
-            'unit': ingredientControllers[i]['unit']!.text,
-          },
-        });
-      }
-
-      for (int i = 0; i < stepControllers.length; i++) {
-        await firestore.collection('users').doc(user!.uid)
-            .collection('my_recipes')
-            .doc(userRecipeRef.id)
-            .collection('steps')
-            .add({
-          'description': stepControllers[i].text,
-          'image_url': stepImageUrls[i] ?? '',
-          'step_number': i + 1,
-        });
-      }
+  // แสดง Dialog สำหรับยืนยันการออกขณะกำลังบันทึก
+  Future<bool> _onWillPop() async {
+    if (_isSaving) {
+      return await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('กำลังบันทึกข้อมูล'),
+          content: const Text('ข้อมูลกำลังถูกบันทึก โปรดรอสักครู่...'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('รอต่อไป'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('ออกทันที', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ) ?? false;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(publish ? 'สูตรอาหารถูกโพสต์เรียบร้อยแล้ว' : 'สูตรอาหารถูกบันทึกเรียบร้อยแล้ว')),
-    );
-
-    Navigator.pop(context);
+    return true;
   }
 
+  Future<void> saveRecipe({bool publish = false}) async {
+    // ตรวจสอบข้อมูลพื้นฐาน
+    if (nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกชื่อสูตรอาหาร')),
+      );
+      return;
+    }
 
+    // เริ่มการบันทึก
+    setState(() {
+      _isSaving = true;
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => saveRecipe(publish: false),
-            child: const Text("บันทึก", style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () => saveRecipe(publish: true),
-            child: const Text("โพสต์", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: pickRecipeImage,
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: recipeImage == null
-                    ? const Center(
-                  child: Text("📷 ใส่รูปอาหารที่ทำเสร็จ", style: TextStyle(color: Colors.black54)),
-                )
-                    : ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(File(recipeImage!.path), fit: BoxFit.cover),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "ชื่อสูตร", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 10),
-            Row(
+    // แสดง Dialog บอกว่ากำลังบันทึก
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("สำหรับ"),
-                      TextField(
-                        controller: servingController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: "1 คน",
-                        ),
-                      ),
-                    ],
-                  ),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 20),
+                Text(
+                  publish ? 'กำลังโพสต์สูตรอาหาร...' : 'กำลังบันทึกสูตรอาหาร...',
+                  style: const TextStyle(fontSize: 16),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("เวลาที่ใช้"),
-                      TextField(
-                        controller: timeController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: "30 นาที",
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 10),
+                const Text(
+                  'โปรดรอสักครู่ กำลังอัปโหลดข้อมูลและรูปภาพ',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            const Text("ส่วนผสม", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Column(
-              children: List.generate(ingredientControllers.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: ingredientControllers[index]['name'],
-                        decoration: const InputDecoration(
-                          labelText: "ชื่อส่วนผสม",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: ingredientControllers[index]['amount'],
-                              decoration: const InputDecoration(
-                                labelText: "จำนวน",
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextField(
-                              controller: ingredientControllers[index]['unit'],
-                              decoration: const InputDecoration(
-                                labelText: "หน่วย",
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => removeIngredient(index),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+          ),
+        );
+      },
+    );
+
+    try {
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      if (user == null) {
+        Navigator.of(context).pop(); // ปิด Dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
+        );
+        return;
+      }
+
+      // อัปโหลดรูปภาพ
+      final recipeImageUrl = await uploadImage(recipeImage);
+      final stepImageUrls = await Future.wait(stepImages.map((image) => uploadImage(image)));
+
+      if (publish) {
+        // ✅ **กรณีโพสต์ จะเพิ่มลง `recipes` (ที่ทุกคนเห็น)**
+        final recipeRef = await firestore.collection('recipes').add({
+          'name': nameController.text,
+          'serving': servingController.text,
+          'prep_time': timeController.text,
+          'image_url': recipeImageUrl ?? '',
+          'user_id': user!.uid,
+          'published': true, // ✅ ตั้งเป็น true เพราะโพสต์
+          'timestamp': FieldValue.serverTimestamp(), // เพิ่มเวลาที่สร้าง
+        });
+
+        // ✅ เพิ่มส่วนผสมและขั้นตอนลง `recipes`
+        for (int i = 0; i < ingredientControllers.length; i++) {
+          if (ingredientControllers[i]['name']!.text.isNotEmpty) {
+            await firestore.collection('ingredients').add({
+              'name': ingredientControllers[i]['name']!.text,
+              'quantity': {
+                'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
+                'unit': ingredientControllers[i]['unit']!.text,
+              },
+              'recipe_id': recipeRef.id,
+            });
+          }
+        }
+
+        for (int i = 0; i < stepControllers.length; i++) {
+          if (stepControllers[i].text.isNotEmpty) {
+            await firestore.collection('steps').add({
+              'description': stepControllers[i].text,
+              'image_url': stepImageUrls[i] ?? '',
+              'recipe_id': recipeRef.id,
+              'step_number': i + 1,
+            });
+          }
+        }
+
+      } else {
+        // ✅ **กรณี "บันทึก" จะเก็บไว้แค่ใน `my_recipes` ของ user**
+        final userRecipeRef = await firestore.collection('users').doc(user!.uid)
+            .collection('my_recipes')
+            .add({
+          'name': nameController.text,
+          'serving': servingController.text,
+          'prep_time': timeController.text,
+          'image_url': recipeImageUrl ?? '',
+          'user_id': user!.uid,
+          'published': false, // ✅ ตั้งเป็น false เพราะยังไม่ได้โพสต์
+          'timestamp': FieldValue.serverTimestamp(), // เพิ่มเวลาที่สร้าง
+        });
+
+        // ✅ เพิ่มส่วนผสมและขั้นตอนลง `my_recipes`
+        for (int i = 0; i < ingredientControllers.length; i++) {
+          if (ingredientControllers[i]['name']!.text.isNotEmpty) {
+            await firestore.collection('users').doc(user!.uid)
+                .collection('my_recipes')
+                .doc(userRecipeRef.id)
+                .collection('ingredients')
+                .add({
+              'name': ingredientControllers[i]['name']!.text,
+              'quantity': {
+                'amount': int.tryParse(ingredientControllers[i]['amount']!.text) ?? 0,
+                'unit': ingredientControllers[i]['unit']!.text,
+              },
+            });
+          }
+        }
+
+        for (int i = 0; i < stepControllers.length; i++) {
+          if (stepControllers[i].text.isNotEmpty) {
+            await firestore.collection('users').doc(user!.uid)
+                .collection('my_recipes')
+                .doc(userRecipeRef.id)
+                .collection('steps')
+                .add({
+              'description': stepControllers[i].text,
+              'image_url': stepImageUrls[i] ?? '',
+              'step_number': i + 1,
+            });
+          }
+        }
+      }
+
+      // ปิด Dialog
+      Navigator.of(context).pop();
+
+      // แสดงข้อความสำเร็จ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(publish ? 'สูตรอาหารถูกโพสต์เรียบร้อยแล้ว' : 'สูตรอาหารถูกบันทึกเรียบร้อยแล้ว'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // กลับไปหน้าก่อนหน้า
+      Navigator.pop(context);
+    } catch (e) {
+      // ปิด Dialog
+      Navigator.of(context).pop();
+
+      // แสดงข้อความผิดพลาด
+      print('Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.blue,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () {
+              if (_isSaving) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('กำลังบันทึกข้อมูล โปรดรอสักครู่...'))
                 );
-              }),
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isSaving
+                  ? null
+                  : () => saveRecipe(publish: false),
+              child: const Text("บันทึก", style: TextStyle(color: Colors.white)),
             ),
-            Align(
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: addIngredient,
-                child: const Text("+ เพิ่มส่วนผสม"),
-              ),
+            TextButton(
+              onPressed: _isSaving
+                  ? null
+                  : () => saveRecipe(publish: true),
+              child: const Text("โพสต์", style: TextStyle(color: Colors.white)),
             ),
-            const SizedBox(height: 20),
-            const Text("วิธีทำ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Column(
-              children: List.generate(stepControllers.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: stepControllers[index],
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                hintText: "เพิ่มขั้นตอน เช่น ตั้งกระทะแล้วใส่น้ำมัน",
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => removeStep(index),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () => pickStepImage(index),
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: stepImages[index] == null
-                              ? const Icon(Icons.camera_alt, size: 40, color: Colors.black54)
-                              : ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.file(File(stepImages[index]!.path), fit: BoxFit.cover),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ),
-                );
-              }),
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: addStep,
-                child: const Text("+ เพิ่มขั้นตอน"),
-              ),
-            ),
-            const SizedBox(height: 20),
           ],
+        ),
+        body: _isSaving
+            ? const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text('กำลังบันทึกข้อมูล โปรดรอสักครู่...'),
+            ],
+          ),
+        )
+            : SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: pickRecipeImage,
+                child: Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: recipeImage == null
+                      ? const Center(
+                    child: Text("📷 ใส่รูปอาหารที่ทำเสร็จ", style: TextStyle(color: Colors.black54)),
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(File(recipeImage!.path), fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: "ชื่อสูตร", border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("สำหรับ"),
+                        TextField(
+                          controller: servingController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: "1 คน",
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("เวลาที่ใช้"),
+                        TextField(
+                          controller: timeController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: "30 นาที",
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text("ส่วนผสม", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Column(
+                children: List.generate(ingredientControllers.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: ingredientControllers[index]['name'],
+                          decoration: const InputDecoration(
+                            labelText: "ชื่อส่วนผสม",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: ingredientControllers[index]['amount'],
+                                decoration: const InputDecoration(
+                                  labelText: "จำนวน",
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: ingredientControllers[index]['unit'],
+                                decoration: const InputDecoration(
+                                  labelText: "หน่วย",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => removeIngredient(index),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: addIngredient,
+                  child: const Text("+ เพิ่มส่วนผสม"),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text("วิธีทำ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Column(
+                children: List.generate(stepControllers.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: stepControllers[index],
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  hintText: "เพิ่มขั้นตอน เช่น ตั้งกระทะแล้วใส่น้ำมัน",
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => removeStep(index),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () => pickStepImage(index),
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: stepImages[index] == null
+                                ? const Icon(Icons.camera_alt, size: 40, color: Colors.black54)
+                                : ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.file(File(stepImages[index]!.path), fit: BoxFit.cover),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: addStep,
+                  child: const Text("+ เพิ่มขั้นตอน"),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );

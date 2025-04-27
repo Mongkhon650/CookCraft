@@ -249,62 +249,10 @@ class _BookmarkPageState extends State<BookmarkPage> {
   }
 
   // เพิ่มฟังก์ชันโพสต์สูตรอาหาร
-  // เพิ่มฟังก์ชันโพสต์สูตรอาหาร
   Future<void> _publishRecipe(String recipeId) async {
-    // แสดง Dialog ยืนยันการโพสต์
-    bool confirmPublish = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ยืนยันการโพสต์'),
-        content: const Text('คุณต้องการโพสต์สูตรอาหารนี้ให้ผู้อื่นเห็นใช่หรือไม่?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('โพสต์เลย'),
-          ),
-        ],
-      ),
-    ) ?? false;
-
-    if (!confirmPublish) return;
-
     setState(() {
       _isLoading = true;
     });
-
-    // แสดง Dialog กำลังดำเนินการ
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 20),
-                const Text(
-                  'กำลังโพสต์สูตรอาหาร...',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'กำลังย้ายข้อมูลไปยังพื้นที่สาธารณะ\nโปรดรอสักครู่',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
 
     try {
       // 1. ดึงข้อมูลสูตรอาหารจาก my_recipes
@@ -316,8 +264,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
           .get();
 
       if (!recipeDoc.exists) {
-        // ปิด Dialog
-        Navigator.of(context).pop();
         throw Exception("ไม่พบสูตรอาหาร");
       }
 
@@ -331,7 +277,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
         'image_url': recipeData['image_url'] ?? '',
         'user_id': user!.uid,
         'published': true,
-        'timestamp': FieldValue.serverTimestamp(),
       });
 
       // 3. ดึงส่วนผสมจาก my_recipes
@@ -360,7 +305,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
           .collection('my_recipes')
           .doc(recipeId)
           .collection('steps')
-          .orderBy('step_number')
           .get();
 
       // 6. เพิ่มขั้นตอนเข้าไปใน steps collection
@@ -382,42 +326,17 @@ class _BookmarkPageState extends State<BookmarkPage> {
           .doc(recipeId)
           .delete();
 
-      // บันทึกไว้ใน bookmarks ด้วย (เพื่อให้ปรากฏในรายการโปรด)
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .collection('bookmarks')
-          .doc(newRecipeRef.id)
-          .set({
-        'recipe_id': newRecipeRef.id,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      // ปิด Dialog
-      Navigator.of(context).pop();
-
       // แสดงข้อความสำเร็จ
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('สูตรอาหารถูกโพสต์เรียบร้อยแล้ว'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text('สูตรอาหารถูกโพสต์เรียบร้อยแล้ว')),
       );
 
       // รีเฟรชหน้าจอ
       setState(() {});
     } catch (e) {
       print("เกิดข้อผิดพลาด: $e");
-
-      // ปิด Dialog ถ้ามี
-      Navigator.of(context, rootNavigator: true).pop();
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาด: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
       );
     } finally {
       setState(() {

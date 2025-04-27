@@ -58,6 +58,20 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     });
   }
 
+  void _saveToRecentViews(String recipeId) async {
+    if (user == null) return;
+
+    final recentRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection('recent_views')
+        .doc(recipeId);
+
+    await recentRef.set({
+      'recipe_id': recipeId,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(

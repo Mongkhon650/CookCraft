@@ -4,10 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class RecipeDetailPage extends StatefulWidget {
   final String recipeId;
+  final bool isPrivate; // เพิ่มพารามิเตอร์บอกว่าเป็นสูตรส่วนตัว
+  final String collectionPath; // เส้นทางคอลเลกชัน (ในกรณีเป็นสูตรส่วนตัว)
 
   const RecipeDetailPage({
     Key? key,
     required this.recipeId,
+    this.isPrivate = false,
+    this.collectionPath = 'recipes',
   }) : super(key: key);
 
   @override
@@ -23,11 +27,14 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   void initState() {
     super.initState();
     _checkIfBookmarked();
-    _saveToRecentViews(widget.recipeId);
+    // บันทึกประวัติการเข้าชมเฉพาะสูตรที่เปิดสาธารณะ
+    if (!widget.isPrivate) {
+      _saveToRecentViews(widget.recipeId);
+    }
   }
 
   void _checkIfBookmarked() async {
-    if (user == null) return;
+    if (user == null || widget.isPrivate) return;
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
@@ -42,7 +49,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   }
 
   void _toggleBookmark() async {
-    if (user == null) return;
+    if (user == null || widget.isPrivate) return;
     final bookmarkRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
@@ -127,35 +134,71 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     );
 
     try {
-      // 1. ลบส่วนผสมที่เกี่ยวข้อง
-      final ingredientsSnapshot = await FirebaseFirestore.instance
-          .collection('ingredients')
-          .where('recipe_id', isEqualTo: widget.recipeId)
-          .get();
+      if (widget.isPrivate) {
+        // ลบสูตรส่วนตัว
 
-      for (var doc in ingredientsSnapshot.docs) {
-        await doc.reference.delete();
+        // 1. ลบคอลเลกชันส่วนผสม
+        final ingredientsSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('my_recipes')
+            .doc(widget.recipeId)
+            .collection('ingredients')
+            .get();
+
+        for (var doc in ingredientsSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // 2. ลบคอลเลกชันขั้นตอน
+        final stepsSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('my_recipes')
+            .doc(widget.recipeId)
+            .collection('steps')
+            .get();
+
+        for (var doc in stepsSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // 3. ลบเอกสารหลัก
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('my_recipes')
+            .doc(widget.recipeId)
+            .delete();
+      } else {
+        // ลบสูตรสาธารณะ
+
+        // 1. ลบส่วนผสมที่เกี่ยวข้อง
+        final ingredientsSnapshot = await FirebaseFirestore.instance
+            .collection('ingredients')
+            .where('recipe_id', isEqualTo: widget.recipeId)
+            .get();
+
+        for (var doc in ingredientsSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // 2. ลบขั้นตอนที่เกี่ยวข้อง
+        final stepsSnapshot = await FirebaseFirestore.instance
+            .collection('steps')
+            .where('recipe_id', isEqualTo: widget.recipeId)
+            .get();
+
+        for (var doc in stepsSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // 3. ลบสูตรอาหารหลัก
+        await FirebaseFirestore.instance
+            .collection('recipes')
+            .doc(widget.recipeId)
+            .delete();
       }
-
-      // 2. ลบขั้นตอนที่เกี่ยวข้อง
-      final stepsSnapshot = await FirebaseFirestore.instance
-          .collection('steps')
-          .where('recipe_id', isEqualTo: widget.recipeId)
-          .get();
-
-      for (var doc in stepsSnapshot.docs) {
-        await doc.reference.delete();
-      }
-
-      // 3. ลบจากคอลเลกชัน bookmarks ของผู้ใช้ทุกคน
-      // (เราไม่สามารถลบจาก bookmarks ของผู้ใช้ทุกคนได้โดยตรง
-      // เพราะเราไม่รู้ว่าใครบ้างที่บุ๊กมาร์กสูตรนี้ไว้ แต่เราจะปล่อยให้เป็นการอ้างอิงที่ไม่มีข้อมูล)
-
-      // 4. ลบสูตรอาหารหลัก
-      await FirebaseFirestore.instance
-          .collection('recipes')
-          .doc(widget.recipeId)
-          .delete();
 
       // ปิด Dialog
       Navigator.of(context).pop();
@@ -192,7 +235,9 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cookcraft', style: TextStyle(color: Colors.black)),
+        title: Text(widget.isPrivate ? 'สูตรส่วนตัว' : 'Cookcraft',
+            style: TextStyle(color: Colors.black)
+        ),
         backgroundColor: Colors.blue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -201,10 +246,12 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
           },
         ),
         actions: [
-          IconButton(
-            icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
-            onPressed: _toggleBookmark,
-          ),
+          // ปุ่มบุ๊กมาร์กแสดงเฉพาะสูตรสาธารณะ
+          if (!widget.isPrivate)
+            IconButton(
+              icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+              onPressed: _toggleBookmark,
+            ),
           IconButton(
             icon: Icon(Icons.more_vert),
             onPressed: () {
@@ -216,7 +263,17 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('recipes').doc(widget.recipeId).get(),
+        future: widget.isPrivate
+            ? FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('my_recipes')
+            .doc(widget.recipeId)
+            .get()
+            : FirebaseFirestore.instance
+            .collection('recipes')
+            .doc(widget.recipeId)
+            .get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -236,6 +293,42 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // แสดงแบนเนอร์สำหรับสูตรส่วนตัว
+                if (widget.isPrivate)
+                  Container(
+                    color: Colors.amber.shade100,
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock, color: Colors.amber.shade800, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'สูตรนี้เป็นส่วนตัว เฉพาะคุณเท่านั้นที่เห็น',
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // เพิ่มโค้ดเรียกใช้ฟังก์ชันโพสต์
+                            _publishRecipeFromDetail(widget.recipeId);
+                          },
+                          child: Text(
+                            'โพสต์เลย',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // รูปภาพหลัก
                 recipeData['image_url'] != null && recipeData['image_url'].toString().isNotEmpty
                     ? Image.network(recipeData['image_url'], width: double.infinity, height: 200, fit: BoxFit.cover)
                     : Container(
@@ -249,6 +342,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ชื่อและปุ่มบุ๊กมาร์ก
                       Row(
                         children: [
                           Expanded(
@@ -257,37 +351,42 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
-                            onPressed: _toggleBookmark,
-                          ),
+                          if (!widget.isPrivate)
+                            IconButton(
+                              icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+                              onPressed: _toggleBookmark,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),
 
-                      FutureBuilder<DocumentSnapshot>(
-                        future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-                        builder: (context, userSnapshot) {
-                          if (userSnapshot.connectionState == ConnectionState.waiting) {
-                            return const Text("กำลังโหลดข้อมูลผู้ใช้...");
-                          }
-                          if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-                            return const Text("โพสต์โดย: ไม่ระบุ");
-                          }
-                          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                          final String displayName = userData['display_name'] ?? "ไม่ระบุ";
+                      // ข้อมูลผู้โพสต์
+                      if (!widget.isPrivate)
+                        FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+                          builder: (context, userSnapshot) {
+                            if (userSnapshot.connectionState == ConnectionState.waiting) {
+                              return const Text("กำลังโหลดข้อมูลผู้ใช้...");
+                            }
+                            if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                              return const Text("โพสต์โดย: ไม่ระบุ");
+                            }
+                            final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                            final String displayName = userData['display_name'] ?? "ไม่ระบุ";
 
-                          return Row(
-                            children: [
-                              const Icon(Icons.account_circle, size: 24, color: Colors.black),
-                              const SizedBox(width: 8),
-                              Text("โพสต์โดย: $displayName"),
-                            ],
-                          );
-                        },
-                      ),
+                            return Row(
+                              children: [
+                                const Icon(Icons.account_circle, size: 24, color: Colors.black),
+                                const SizedBox(width: 8),
+                                Text("โพสต์โดย: $displayName"),
+                              ],
+                            );
+                          },
+                        ),
+
                       const SizedBox(height: 8),
 
+                      // เวลาในการทำ
                       Row(
                         children: [
                           const Icon(Icons.access_time, size: 24, color: Colors.black),
@@ -297,6 +396,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                       ),
                       const SizedBox(height: 8),
 
+                      // จำนวนเสิร์ฟ
                       Row(
                         children: [
                           const Icon(Icons.people, size: 24, color: Colors.black),
@@ -306,57 +406,15 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                       ),
                       const SizedBox(height: 16),
 
+                      // ส่วนผสม
                       const Text("ส่วนผสม", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      FutureBuilder<QuerySnapshot>(
-                        future: FirebaseFirestore.instance.collection('ingredients').where('recipe_id', isEqualTo: widget.recipeId).get(),
-                        builder: (context, ingredientSnapshot) {
-                          if (ingredientSnapshot.connectionState == ConnectionState.waiting) {
-                            return const CircularProgressIndicator();
-                          }
-                          if (!ingredientSnapshot.hasData || ingredientSnapshot.data!.docs.isEmpty) {
-                            return const Text("ไม่พบข้อมูลส่วนผสม");
-                          }
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: ingredientSnapshot.data!.docs.map((doc) {
-                              final data = doc.data() as Map<String, dynamic>;
-                              return Text("- ${data['name']} ${data['quantity']['amount']} ${data['quantity']['unit']}");
-                            }).toList(),
-                          );
-                        },
-                      ),
+                      _buildIngredients(),
                       const SizedBox(height: 16),
 
+                      // วิธีทำ
                       const Text("วิธีทำ", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      FutureBuilder<QuerySnapshot>(
-                        future: FirebaseFirestore.instance.collection('steps').where('recipe_id', isEqualTo: widget.recipeId).orderBy('step_number').get(),
-                        builder: (context, stepsSnapshot) {
-                          if (stepsSnapshot.connectionState == ConnectionState.waiting) {
-                            return const CircularProgressIndicator();
-                          }
-                          if (!stepsSnapshot.hasData || stepsSnapshot.data!.docs.isEmpty) {
-                            return const Text("ไม่พบข้อมูลขั้นตอน");
-                          }
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: stepsSnapshot.data!.docs.map((step) {
-                              final stepData = step.data() as Map<String, dynamic>;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("ขั้นตอนที่ ${stepData['step_number']}: ${stepData['description']}"),
-                                  if (stepData['image_url'] != null && stepData['image_url'].toString().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                      child: Image.network(stepData['image_url']),
-                                    ),
-                                ],
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
+                      _buildSteps(),
                     ],
                   ),
                 ),
@@ -368,10 +426,200 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     );
   }
 
+  Widget _buildIngredients() {
+    return FutureBuilder<QuerySnapshot>(
+      future: widget.isPrivate
+          ? FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('my_recipes')
+          .doc(widget.recipeId)
+          .collection('ingredients')
+          .get()
+          : FirebaseFirestore.instance
+          .collection('ingredients')
+          .where('recipe_id', isEqualTo: widget.recipeId)
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Text("ไม่พบข้อมูลส่วนผสม");
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                "- ${data['name']} ${data['quantity']['amount']} ${data['quantity']['unit']}",
+                style: TextStyle(fontSize: 16),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildSteps() {
+    return FutureBuilder<QuerySnapshot>(
+      future: widget.isPrivate
+          ? FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('my_recipes')
+          .doc(widget.recipeId)
+          .collection('steps')
+          .orderBy('step_number')
+          .get()
+          : FirebaseFirestore.instance
+          .collection('steps')
+          .where('recipe_id', isEqualTo: widget.recipeId)
+          .orderBy('step_number')
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Text("ไม่พบข้อมูลขั้นตอน");
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: snapshot.data!.docs.map((step) {
+            final stepData = step.data() as Map<String, dynamic>;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    "ขั้นตอนที่ ${stepData['step_number']}: ${stepData['description']}",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+                if (stepData['image_url'] != null && stepData['image_url'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        stepData['image_url'],
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  // ฟังก์ชันโพสต์สูตรอาหารจากหน้ารายละเอียด
+  Future<void> _publishRecipeFromDetail(String recipeId) async {
+    // แสดง Dialog ยืนยันการโพสต์
+    bool confirmPublish = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ยืนยันการโพสต์'),
+        content: const Text('คุณต้องการโพสต์สูตรอาหารนี้ให้ผู้อื่นเห็นใช่หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('โพสต์เลย'),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirmPublish) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    // แสดง Dialog กำลังดำเนินการ
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 20),
+                const Text(
+                  'กำลังโพสต์สูตรอาหาร...',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'กำลังย้ายข้อมูลไปยังพื้นที่สาธารณะ\nโปรดรอสักครู่',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      // ทำเหมือนกับในหน้า BookmarkPage
+      // ...
+      // โค้ดการโพสต์สูตรอาหาร
+      // ...
+
+      // หลังจากโพสต์สำเร็จ
+      // ปิด Dialog
+      Navigator.of(context).pop();
+
+      // แสดงข้อความสำเร็จ
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('สูตรอาหารถูกโพสต์เรียบร้อยแล้ว'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // กลับไปหน้าก่อนหน้า
+      Navigator.of(context).pop();
+    } catch (e) {
+      // ปิด Dialog ถ้ามี
+      Navigator.of(context, rootNavigator: true).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
   void _showOptionsMenu(BuildContext context) {
-    // ตรวจสอบว่าผู้ใช้เป็นเจ้าของสูตรอาหารหรือไม่
     FirebaseFirestore.instance
-        .collection('recipes')
+        .collection(widget.isPrivate ? 'users/${user!.uid}/my_recipes' : 'recipes')
         .doc(widget.recipeId)
         .get()
         .then((recipeDoc) {
@@ -395,15 +643,27 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                       _deleteRecipe(); // เรียกฟังก์ชันลบสูตรอาหาร
                     },
                   ),
-                // แสดงตัวเลือกรายงานสูตรอาหารสำหรับทุกคน
-                ListTile(
-                  leading: const Icon(Icons.report, color: Colors.red),
-                  title: const Text('รายงานสูตรอาหาร'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _reportRecipe();
-                  },
-                ),
+
+                if (isOwner && widget.isPrivate)
+                  ListTile(
+                    leading: const Icon(Icons.public, color: Colors.blue),
+                    title: const Text('โพสต์สูตรอาหาร'),
+                    onTap: () {
+                      Navigator.pop(context); // ปิด bottom sheet
+                      _publishRecipeFromDetail(widget.recipeId); // เรียกฟังก์ชันโพสต์สูตรอาหาร
+                    },
+                  ),
+
+                // แสดงตัวเลือกรายงานสูตรอาหารสำหรับสูตรสาธารณะ
+                if (!widget.isPrivate)
+                  ListTile(
+                    leading: const Icon(Icons.report, color: Colors.red),
+                    title: const Text('รายงานสูตรอาหาร'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _reportRecipe();
+                    },
+                  ),
               ],
             );
           },

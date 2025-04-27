@@ -13,6 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   void login() async {
     setState(() {
@@ -26,6 +27,29 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() {
       _isLoading = false;
+    });
+
+    if (error == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => ProfilePage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void googleLogin() async {
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    String? error = await _authService.signInWithGoogle();
+
+    setState(() {
+      _isGoogleLoading = false;
     });
 
     if (error == null) {
@@ -59,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/icon.png', // ใช้ไอคอนใหม่
+              'assets/icon.png',
               width: 100,
               height: 100,
             ),
@@ -94,13 +118,59 @@ class _LoginPageState extends State<LoginPage> {
                 backgroundColor: Colors.blue,
                 padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: Size(double.infinity, 50),
               ),
               child: _isLoading
                   ? CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white))
                   : Text('เข้าสู่ระบบ', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
-            SizedBox(height: 10),
+            SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: Divider(thickness: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text("หรือ", style: TextStyle(color: Colors.grey)),
+                ),
+                Expanded(child: Divider(thickness: 1)),
+              ],
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _isGoogleLoading ? null : googleLogin,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                elevation: 1,
+                minimumSize: Size(double.infinity, 50),
+              ),
+              child: _isGoogleLoading
+                  ? CircularProgressIndicator()
+                  : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/google_logo.png',
+                    height: 24,
+                    width: 24,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'เข้าสู่ระบบด้วย Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
             TextButton(
               onPressed: () {},
               child: Text('ลืมรหัสผ่าน?', style: TextStyle(fontSize: 14, color: Colors.black)),
